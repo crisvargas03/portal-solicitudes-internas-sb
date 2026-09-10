@@ -19,6 +19,13 @@ public class FiltroSolicitudes : ParametrosPaginacion
 
     public int? UsuarioAsignadoId { get; set; }
 
+    /// <summary>
+    /// Cuando es <c>true</c>, el filtro por <see cref="UsuarioAsignadoId"/> tambien admite
+    /// solicitudes sin asignar (usado por el alcance del rol Analista, ver ADR-0012:
+    /// asignadas a si mismo o sin asignar). Sin efecto si <see cref="UsuarioAsignadoId"/> es nulo.
+    /// </summary>
+    public bool IncluirSinAsignar { get; set; }
+
     public DateTime? FechaCreacionDesde { get; set; }
 
     public DateTime? FechaCreacionHasta { get; set; }
