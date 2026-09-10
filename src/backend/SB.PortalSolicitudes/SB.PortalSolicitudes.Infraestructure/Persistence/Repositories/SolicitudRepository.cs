@@ -63,7 +63,9 @@ public class SolicitudRepository : RepositorioBase<Solicitud>, ISolicitudReposit
             .Where(solicitud => filtro.AreaId == null || solicitud.AreaId == filtro.AreaId)
             .Where(solicitud => filtro.TipoSolicitudId == null || solicitud.TipoSolicitudId == filtro.TipoSolicitudId)
             .Where(solicitud => filtro.UsuarioSolicitanteId == null || solicitud.UsuarioSolicitanteId == filtro.UsuarioSolicitanteId)
-            .Where(solicitud => filtro.UsuarioAsignadoId == null || solicitud.UsuarioAsignadoId == filtro.UsuarioAsignadoId)
+            .Where(solicitud => filtro.UsuarioAsignadoId == null
+                || solicitud.UsuarioAsignadoId == filtro.UsuarioAsignadoId
+                || (filtro.IncluirSinAsignar && solicitud.UsuarioAsignadoId == null))
             .Where(solicitud => filtro.FechaCreacionDesde == null || solicitud.FechaCreacion >= filtro.FechaCreacionDesde)
             .Where(solicitud => filtro.FechaCreacionHasta == null || solicitud.FechaCreacion <= filtro.FechaCreacionHasta)
             .Where(solicitud => string.IsNullOrWhiteSpace(filtro.TextoBusqueda)
@@ -84,9 +86,9 @@ public class SolicitudRepository : RepositorioBase<Solicitud>, ISolicitudReposit
     }
 
     public async Task<IReadOnlyDictionary<string, int>> ContarPorCodigoDeEstadoAsync(
-        CancellationToken cancellationToken = default)
+        AlcanceSolicitudes alcance, CancellationToken cancellationToken = default)
     {
-        List<(string Codigo, int Cantidad)> conteos = await Conjunto.AsNoTracking()
+        List<(string Codigo, int Cantidad)> conteos = await AplicarAlcance(Conjunto.AsNoTracking(), alcance)
             .GroupBy(solicitud => solicitud.Estado!.Codigo)
             .Select(grupo => new ValueTuple<string, int>(grupo.Key, grupo.Count()))
             .ToListAsync(cancellationToken);
@@ -94,9 +96,10 @@ public class SolicitudRepository : RepositorioBase<Solicitud>, ISolicitudReposit
         return conteos.ToDictionary(conteo => conteo.Codigo, conteo => conteo.Cantidad);
     }
 
-    public async Task<IReadOnlyDictionary<int, int>> ContarPorPrioridadAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyDictionary<int, int>> ContarPorPrioridadAsync(
+        AlcanceSolicitudes alcance, CancellationToken cancellationToken = default)
     {
-        List<(int PrioridadId, int Cantidad)> conteos = await Conjunto.AsNoTracking()
+        List<(int PrioridadId, int Cantidad)> conteos = await AplicarAlcance(Conjunto.AsNoTracking(), alcance)
             .GroupBy(solicitud => solicitud.PrioridadId)
             .Select(grupo => new ValueTuple<int, int>(grupo.Key, grupo.Count()))
             .ToListAsync(cancellationToken);
@@ -104,18 +107,24 @@ public class SolicitudRepository : RepositorioBase<Solicitud>, ISolicitudReposit
         return conteos.ToDictionary(conteo => conteo.PrioridadId, conteo => conteo.Cantidad);
     }
 
-    public async Task<int> ContarVencidasAsync(DateTime fechaReferencia, CancellationToken cancellationToken = default)
+    public async Task<int> ContarVencidasAsync(
+        DateTime fechaReferencia, AlcanceSolicitudes alcance, CancellationToken cancellationToken = default)
     {
-        return await Conjunto.AsNoTracking()
+        return await AplicarAlcance(Conjunto.AsNoTracking(), alcance)
             .Where(solicitud => solicitud.FechaCompromiso != null && solicitud.FechaCompromiso < fechaReferencia)
+            .Where(solicitud => !solicitud.Estado!.EsFinal)
             .CountAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<Solicitud>> ObtenerRecientesAsync(
-        int cantidad, CancellationToken cancellationToken = default)
+        int cantidad, AlcanceSolicitudes alcance, CancellationToken cancellationToken = default)
     {
-        return await Conjunto.AsNoTracking()
+        return await AplicarAlcance(Conjunto.AsNoTracking(), alcance)
             .Include(solicitud => solicitud.Estado)
+            .Include(solicitud => solicitud.Prioridad)
+            .Include(solicitud => solicitud.Area)
+            .Include(solicitud => solicitud.TipoSolicitud)
+            .Include(solicitud => solicitud.UsuarioSolicitante)
             .Include(solicitud => solicitud.UsuarioAsignado)
             .OrderByDescending(solicitud => solicitud.FechaCreacion)
             .Take(cantidad)
@@ -127,5 +136,15 @@ public class SolicitudRepository : RepositorioBase<Solicitud>, ISolicitudReposit
         return await Conjunto.AsNoTracking()
             .Where(solicitud => solicitud.FechaCreacion.Year == anio)
             .CountAsync(cancellationToken);
+    }
+
+    private static IQueryable<Solicitud> AplicarAlcance(IQueryable<Solicitud> consulta, AlcanceSolicitudes alcance)
+    {
+        return consulta
+            .Where(solicitud => alcance.UsuarioSolicitanteId == null
+                || solicitud.UsuarioSolicitanteId == alcance.UsuarioSolicitanteId)
+            .Where(solicitud => alcance.UsuarioAsignadoId == null
+                || solicitud.UsuarioAsignadoId == alcance.UsuarioAsignadoId
+                || (alcance.IncluirSinAsignar && solicitud.UsuarioAsignadoId == null));
     }
 }

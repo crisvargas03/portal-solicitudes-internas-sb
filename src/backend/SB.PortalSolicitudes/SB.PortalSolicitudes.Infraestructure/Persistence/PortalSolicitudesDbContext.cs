@@ -42,6 +42,8 @@ public class PortalSolicitudesDbContext : DbContext
 
     public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
 
+    public DbSet<ContadorCodigo> ContadoresCodigo => Set<ContadorCodigo>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -26,6 +26,7 @@ public class NotificacionRepository : RepositorioBase<Notificacion>, INotificaci
         FiltroNotificaciones filtro, CancellationToken cancellationToken = default)
     {
         IQueryable<Notificacion> consulta = Conjunto.AsNoTracking()
+            .Include(notificacion => notificacion.Solicitud)
             .Where(notificacion => filtro.UsuarioDestinoId == null || notificacion.UsuarioDestinoId == filtro.UsuarioDestinoId)
             .Where(notificacion => filtro.Estado == null || notificacion.Estado == filtro.Estado)
             .Where(notificacion => filtro.Canal == null || notificacion.Canal == filtro.Canal)

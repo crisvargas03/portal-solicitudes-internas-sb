@@ -22,16 +22,28 @@ public interface ISolicitudRepository : IRepositorioBase<Solicitud>
     Task<ResultadoPaginado<Solicitud>> ObtenerPaginadoAsync(
         FiltroSolicitudes filtro, CancellationToken cancellationToken = default);
 
-    /// <summary>Conteo agrupado por <c>EstadoSolicitud.Codigo</c>, para el dashboard.</summary>
-    Task<IReadOnlyDictionary<string, int>> ContarPorCodigoDeEstadoAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Conteo agrupado por <c>EstadoSolicitud.Codigo</c>, para el dashboard.
+    /// <paramref name="alcance"/> aplica el recorte por rol (ADR-0012), para que el
+    /// dashboard nunca muestre mas de lo que el listado dejaria ver al mismo usuario.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, int>> ContarPorCodigoDeEstadoAsync(
+        AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
 
     /// <summary>Conteo agrupado por <c>PrioridadId</c>, para el dashboard.</summary>
-    Task<IReadOnlyDictionary<int, int>> ContarPorPrioridadAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, int>> ContarPorPrioridadAsync(
+        AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
 
-    /// <summary><paramref name="fechaReferencia"/> la decide quien llama: el repositorio no lee la hora del sistema.</summary>
-    Task<int> ContarVencidasAsync(DateTime fechaReferencia, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// <paramref name="fechaReferencia"/> la decide quien llama: el repositorio no lee la
+    /// hora del sistema. Excluye las solicitudes en un estado final (<c>EsFinal</c>): una
+    /// solicitud cerrada con fecha de compromiso pasada no esta vencida.
+    /// </summary>
+    Task<int> ContarVencidasAsync(
+        DateTime fechaReferencia, AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Solicitud>> ObtenerRecientesAsync(int cantidad, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Solicitud>> ObtenerRecientesAsync(
+        int cantidad, AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
 
     /// <summary>Soporte para la generacion del codigo legible (ver docs/open-decisions.md #2). Solo informa, no decide.</summary>
     Task<int> ContarPorAnioDeCreacionAsync(int anio, CancellationToken cancellationToken = default);
