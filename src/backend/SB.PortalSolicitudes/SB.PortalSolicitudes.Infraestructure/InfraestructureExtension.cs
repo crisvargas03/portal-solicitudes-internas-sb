@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SB.PortalSolicitudes.Application.Abstractions;
+using SB.PortalSolicitudes.Application.Abstractions.Persistence;
 using SB.PortalSolicitudes.Infraestructure.Persistence;
+using SB.PortalSolicitudes.Infraestructure.Persistence.Repositories;
 
 namespace SB.PortalSolicitudes.Infraestructure;
 
@@ -33,8 +34,19 @@ public static class InfraestructureExtension
                 cadenaConexion,
                 sqlServer => sqlServer.EnableRetryOnFailure()));
 
-        servicios.AddScoped<IPortalSolicitudesDbContext>(proveedor =>
-            proveedor.GetRequiredService<PortalSolicitudesDbContext>());
+        servicios.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        servicios.AddScoped<IUsuarioRepository, UsuarioRepository>();
+        servicios.AddScoped<ISolicitudRepository, SolicitudRepository>();
+        servicios.AddScoped<IAreaRepository, AreaRepository>();
+        servicios.AddScoped<ITipoSolicitudRepository, TipoSolicitudRepository>();
+        servicios.AddScoped<IPrioridadRepository, PrioridadRepository>();
+        servicios.AddScoped<IEstadoSolicitudRepository, EstadoSolicitudRepository>();
+        servicios.AddScoped<ITransicionPermitidaRepository, TransicionPermitidaRepository>();
+        servicios.AddScoped<IHistorialEstadoRepository, HistorialEstadoRepository>();
+        servicios.AddScoped<IComentarioRepository, ComentarioRepository>();
+        servicios.AddScoped<IAdjuntoRepository, AdjuntoRepository>();
+        servicios.AddScoped<INotificacionRepository, NotificacionRepository>();
 
         return servicios;
     }

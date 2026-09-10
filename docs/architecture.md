@@ -31,11 +31,15 @@ Clean/Onion Architecture, layered. Goal: low coupling, business logic independen
 ## Layers
 
 ```
-Api            → HTTP entrypoint. Controllers, middlewares, DI configuration, Swagger.
-                  Contains no business logic.
-Application    → use cases (application services), DTOs, validation,
-                  interfaces that Infrastructure implements (INotificationService,
-                  INotificationChannel, IRepository where applicable).
+Api            → HTTP entrypoint. Controllers, middlewares, DI configuration, Swagger,
+                  the RespuestaApi<T> success envelope and the Resultado<T> → ProblemDetails
+                  mapping (see ADR-0010). Contains no business logic.
+Application    → MediatR command/query handlers (business logic lives here directly —
+                  no separate application-service/use-case layer), DTOs, validation,
+                  the Resultado/Error result type (ADR-0010), and interfaces that
+                  Infrastructure implements: IUnitOfWork and one repository interface per
+                  entity under Abstractions/Persistence (ADR-0009), plus
+                  INotificationService/INotificationChannel once ADR-0003 is accepted.
 Domain         → entities (Solicitud, Usuario, HistorialEstado, Comentario,
                   Notificacion, Adjunto, Area, TipoSolicitud, Prioridad,
                   EstadoSolicitud, TransicionPermitida) and enums (RolUsuario,
@@ -43,12 +47,13 @@ Domain         → entities (Solicitud, Usuario, HistorialEstado, Comentario,
                   definitions with no behavior and no validation: business
                   rules and validation live in Application.
                   No external dependencies (no EF Core, no ASP.NET).
-Infrastructure → EF Core (DbContext, IEntityTypeConfiguration mappings,
-                  migrations, concrete repositories), notification channel
-                  implementation, logging (Serilog).
+Infrastructure → EF Core (DbContext, IEntityTypeConfiguration mappings, migrations),
+                  the concrete repositories and UnitOfWork implementing the
+                  Application/Abstractions/Persistence interfaces (ADR-0009),
+                  notification channel implementation, logging (Serilog).
 ```
 
-Dependency rule: `Api → Application → Domain`, with `Infrastructure` implementing interfaces defined in `Application`/`Domain` (injected via DI in `Api`). `Domain` depends on no other layer.
+Dependency rule: `Api → Application → Domain`, with `Infrastructure` implementing interfaces defined in `Application`/`Domain` (injected via DI in `Api`). `Domain` depends on no other layer. `Application` has no dependency on EF Core or any other Infrastructure concern — repository interfaces and `IUnitOfWork` are the only seam.
 
 > Naming note: entity, enum, and state names stay in Spanish in the code (`Solicitud`, `EstadoSolicitud`, `Resuelta`, `Cerrada`, etc.), per the naming rules in `docs/conventions.md`. This document is written in English but doesn't translate them.
 
