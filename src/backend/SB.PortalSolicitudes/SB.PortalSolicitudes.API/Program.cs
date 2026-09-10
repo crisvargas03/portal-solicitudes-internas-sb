@@ -1,30 +1,160 @@
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using SB.PortalSolicitudes.API.Autenticacion;
+using SB.PortalSolicitudes.API.Middleware;
 using SB.PortalSolicitudes.Application;
+using SB.PortalSolicitudes.Application.Abstractions;
+using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Infraestructure;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+const int LONGITUD_MINIMA_CLAVE_JWT_EN_BYTES = 32;
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddProblemDetails();
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
-builder.Services.AgregarAplicacion();
-builder.Services.AgregarInfraestructura(builder.Configuration);
-
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
+try
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Host.UseSerilog((contexto, configuracion) => configuracion.ReadFrom.Configuration(contexto.Configuration));
+
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddControllers();
+    builder.Services.AddEndpointsApiExplorer();
+
+    builder.Services.AddSwaggerGen(opciones =>
+    {
+        opciones.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "Bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Token JWT obtenido en POST /api/auth/login. Formato: Bearer {token}"
+        });
+
+        opciones.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
+
+    builder.Services.AddProblemDetails();
+
+    string[] origenesPermitidos = builder.Configuration.GetSection("Cors:OrigenesPermitidos").Get<string[]>() ?? [];
+
+    const string POLITICA_CORS = "PortalSolicitudes";
+
+    builder.Services.AddCors(opciones =>
+    {
+        opciones.AddPolicy(POLITICA_CORS, politica =>
+        {
+            politica.WithOrigins(origenesPermitidos).AllowAnyHeader().AllowAnyMethod();
+        });
+    });
+
+    OpcionesJwt opcionesJwt =
+        builder.Configuration.GetSection(OpcionesJwt.SECCION).Get<OpcionesJwt>() ?? new OpcionesJwt();
+
+    if (string.IsNullOrWhiteSpace(opcionesJwt.ClaveSecreta)
+        || Encoding.UTF8.GetByteCount(opcionesJwt.ClaveSecreta) < LONGITUD_MINIMA_CLAVE_JWT_EN_BYTES)
+    {
+        throw new InvalidOperationException(
+            $"No se configuro 'Jwt:ClaveSecreta' (o mide menos de {LONGITUD_MINIMA_CLAVE_JWT_EN_BYTES} bytes). " +
+            "Definala en la configuracion o en la variable de entorno 'Jwt__ClaveSecreta'.");
+    }
+
+    builder.Services
+        .AddAuthentication(opciones =>
+        {
+            opciones.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            opciones.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(opciones =>
+        {
+            opciones.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = opcionesJwt.Emisor,
+                ValidateAudience = true,
+                ValidAudience = opcionesJwt.Audiencia,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(opcionesJwt.ClaveSecreta)),
+                ClockSkew = TimeSpan.Zero
+            };
+        });
+
+    builder.Services.AddAuthorization();
+
+    builder.Services.AddExceptionHandler<ManejadorExcepcionValidacion>();
+    builder.Services.AddExceptionHandler<ManejadorExcepcionGlobal>();
+
+    builder.Services.AddScoped<IUsuarioActual, UsuarioActual>();
+    builder.Services.AddScoped<IEntornoEjecucion, EntornoEjecucion>();
+
+    builder.Services.AgregarAplicacion();
+    builder.Services.AgregarInfraestructura(builder.Configuration);
+
+    var app = builder.Build();
+
+    app.UseExceptionHandler();
+
+    // EnrichDiagnosticContext corre al final de la peticion, leyendo el HttpContext ya
+    // autenticado: es lo que permite que la linea-resumen de UseSerilogRequestLogging
+    // lleve UsuarioId/Rol. MiddlewareContextoUsuario (mas abajo) cubre las lineas de log
+    // emitidas dentro de la peticion (handlers, comportamientos de LiteBus) via LogContext
+    // — ese scope se cierra antes de que la linea-resumen se emita, asi que no alcanza.
+    app.UseSerilogRequestLogging(opciones =>
+    {
+        opciones.EnrichDiagnosticContext = (contexto, httpContext) =>
+        {
+            contexto.Set("UsuarioId", httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier));
+            contexto.Set("Rol", httpContext.User.FindFirstValue(ClaimTypes.Role));
+        };
+    });
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+    else
+    {
+        app.UseHttpsRedirection();
+    }
+
+    app.UseCors(POLITICA_CORS);
+
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.UseMiddleware<MiddlewareContextoUsuario>();
+
+    app.MapControllers();
+
+    app.Run();
 }
-else
+catch (Exception excepcion) when (excepcion is not Microsoft.Extensions.Hosting.HostAbortedException)
 {
-    app.UseHttpsRedirection();
+    // HostAbortedException es el mecanismo con el que las herramientas de diseño de EF Core
+    // (dotnet ef migrations/database update) detienen el host tras construirlo, para
+    // extraer el DbContext sin ejecutar la aplicacion: no es un fallo real de arranque.
+    Log.Fatal(excepcion, "La aplicacion no pudo iniciar.");
 }
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+finally
+{
+    Log.CloseAndFlush();
+}
