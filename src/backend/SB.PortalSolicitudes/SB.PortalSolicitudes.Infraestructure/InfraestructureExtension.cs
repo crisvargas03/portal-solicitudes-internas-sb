@@ -1,7 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using SB.PortalSolicitudes.Application.Abstractions;
+using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
+using SB.PortalSolicitudes.Application.Abstractions.Notificaciones;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
+using SB.PortalSolicitudes.Infraestructure.Autenticacion;
+using SB.PortalSolicitudes.Infraestructure.Notificaciones;
 using SB.PortalSolicitudes.Infraestructure.Persistence;
 using SB.PortalSolicitudes.Infraestructure.Persistence.Repositories;
 
@@ -29,10 +35,13 @@ public static class InfraestructureExtension
                 $"o la variable de entorno 'ConnectionStrings__{NOMBRE_CADENA_CONEXION}'.");
         }
 
+        // Sin EnableRetryOnFailure(): EF Core no permite combinar una estrategia de
+        // ejecucion con reintentos con transacciones iniciadas manualmente
+        // (IUnitOfWork.IniciarTransaccionAsync, usada en CrearSolicitud y CambiarEstado) —
+        // lanza InvalidOperationException en el primer SaveChangesAsync dentro de la
+        // transaccion. Los handlers ya manejan sus propios rollback ante fallo.
         servicios.AddDbContext<PortalSolicitudesDbContext>(opciones =>
-            opciones.UseSqlServer(
-                cadenaConexion,
-                sqlServer => sqlServer.EnableRetryOnFailure()));
+            opciones.UseSqlServer(cadenaConexion));
 
         servicios.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -47,6 +56,17 @@ public static class InfraestructureExtension
         servicios.AddScoped<IComentarioRepository, ComentarioRepository>();
         servicios.AddScoped<IAdjuntoRepository, AdjuntoRepository>();
         servicios.AddScoped<INotificacionRepository, NotificacionRepository>();
+
+        servicios.AddScoped<IGeneradorCodigoSolicitud, GeneradorCodigoSolicitud>();
+        servicios.AddScoped<IPreparadorBaseDeDatos, PreparadorBaseDeDatos>();
+
+        servicios.Configure<OpcionesJwt>(configuracion.GetSection(OpcionesJwt.SECCION));
+        servicios.AddScoped<IProveedorTokens, ProveedorTokensJwt>();
+        servicios.AddScoped<IHasheadorPasswords, HasheadorPasswordsBCrypt>();
+        servicios.AddScoped<IProveedorFechaHora, ProveedorFechaHora>();
+
+        servicios.AddScoped<INotificationService, NotificationService>();
+        servicios.AddScoped<INotificationChannel, CanalNotificacionBaseDeDatos>();
 
         return servicios;
     }
