@@ -1,3 +1,4 @@
+using SB.PortalSolicitudes.Application;
 using SB.PortalSolicitudes.Infraestructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,7 +6,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
 
+builder.Services.AgregarAplicacion();
 builder.Services.AgregarInfraestructura(builder.Configuration);
 
 var app = builder.Build();

@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SB.PortalSolicitudes.Application.Abstractions;
 using SB.PortalSolicitudes.Domain.Entities;
 
 namespace SB.PortalSolicitudes.Infraestructure.Persistence;
@@ -9,8 +8,10 @@ namespace SB.PortalSolicitudes.Infraestructure.Persistence;
 /// las clases <c>IEntityTypeConfiguration</c> de esta misma carpeta, para que el proyecto
 /// <c>Domain</c> siga sin dependencias (ver docs/architecture.md).
 /// Las migraciones son la unica fuente de verdad del esquema (ver ADR-0008).
+/// No se expone directamente a <c>Application</c>: los handlers dependen de
+/// <c>IUnitOfWork</c> y de los repositorios (ver ADR-0009).
 /// </summary>
-public class PortalSolicitudesDbContext : DbContext, IPortalSolicitudesDbContext
+public class PortalSolicitudesDbContext : DbContext
 {
     public PortalSolicitudesDbContext(DbContextOptions<PortalSolicitudesDbContext> opciones)
         : base(opciones)
