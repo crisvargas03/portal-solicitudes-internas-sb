@@ -34,7 +34,7 @@ Clean/Onion Architecture, layered. Goal: low coupling, business logic independen
 Api            → HTTP entrypoint. Controllers, middlewares, DI configuration, Swagger,
                   the RespuestaApi<T> success envelope and the Resultado<T> → ProblemDetails
                   mapping (see ADR-0010). Contains no business logic.
-Application    → MediatR command/query handlers (business logic lives here directly —
+Application    → LiteBus command/query handlers (business logic lives here directly —
                   no separate application-service/use-case layer), DTOs, validation,
                   the Resultado/Error result type (ADR-0010), and interfaces that
                   Infrastructure implements: IUnitOfWork and one repository interface per
