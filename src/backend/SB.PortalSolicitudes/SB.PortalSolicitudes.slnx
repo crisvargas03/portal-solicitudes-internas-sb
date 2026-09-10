@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SB.PortalSolicitudes.API/SB.PortalSolicitudes.API.csproj" />
+  <Project Path="SB.PortalSolicitudes.Application/SB.PortalSolicitudes.Application.csproj" />
+  <Project Path="SB.PortalSolicitudes.Domain/SB.PortalSolicitudes.Domain.csproj" />
+  <Project Path="SB.PortalSolicitudes.Infraestructure/SB.PortalSolicitudes.Infraestructure.csproj" />
+</Solution>
