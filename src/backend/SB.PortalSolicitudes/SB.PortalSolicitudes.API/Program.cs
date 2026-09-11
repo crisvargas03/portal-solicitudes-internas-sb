@@ -3,7 +3,9 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Mvc;
 using SB.PortalSolicitudes.API.Autenticacion;
+using SB.PortalSolicitudes.API.Common;
 using SB.PortalSolicitudes.API.Middleware;
 using SB.PortalSolicitudes.Application;
 using SB.PortalSolicitudes.Application.Abstractions;
@@ -26,6 +28,31 @@ try
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
+
+    // El [ApiController] responde 400 por su cuenta ante un fallo de model-binding (JSON
+    // malformado, tipos que no calzan) antes de que el comando/consulta llegue a LiteBus:
+    // sin este override usaria su ValidationProblemDetails por defecto en vez del sobre
+    // RespuestaApi que usa el resto de la Api (ver ADR-0010, amendada).
+    builder.Services.Configure<ApiBehaviorOptions>(opciones =>
+    {
+        opciones.InvalidModelStateResponseFactory = contexto =>
+        {
+            Dictionary<string, string[]> errores = contexto.ModelState
+                .Where(entrada => entrada.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    entrada => entrada.Key,
+                    entrada => entrada.Value!.Errors.Select(error => error.ErrorMessage).ToArray());
+
+            RespuestaApi cuerpo = RespuestaApi.CrearError(new ErrorApiDto
+            {
+                Codigo = "Validacion",
+                Detalle = "Uno o mas campos no son validos.",
+                Errores = errores
+            });
+
+            return new BadRequestObjectResult(cuerpo);
+        };
+    });
 
     builder.Services.AddSwaggerGen(opciones =>
     {

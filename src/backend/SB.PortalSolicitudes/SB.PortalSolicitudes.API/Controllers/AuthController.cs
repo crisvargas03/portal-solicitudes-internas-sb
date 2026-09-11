@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SB.PortalSolicitudes.API.Common;
 using SB.PortalSolicitudes.Application.Features.Auth.Commands.IniciarSesion;
+using SB.PortalSolicitudes.Application.Features.Auth.Commands.RegistrarUsuario;
 using SB.PortalSolicitudes.Application.Features.Auth.Queries.ObtenerUsuarioActual;
 
 namespace SB.PortalSolicitudes.API.Controllers;
@@ -24,6 +25,16 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] IniciarSesionCommand comando, CancellationToken cancellationToken)
+    {
+        var resultado = await _commandMediator.SendAsync(comando, cancellationToken: cancellationToken);
+
+        return resultado.AResultadoHttp();
+    }
+
+    [HttpPost("register")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Registrar(
+        [FromBody] RegistrarUsuarioCommand comando, CancellationToken cancellationToken)
     {
         var resultado = await _commandMediator.SendAsync(comando, cancellationToken: cancellationToken);
 
