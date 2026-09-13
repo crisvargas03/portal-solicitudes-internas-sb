@@ -32,8 +32,8 @@ interface DataTableProps<T> {
 
 /**
  * Tabla genérica reutilizable en cualquier lugar donde se necesite una lista tabular
- * (no solo Solicitudes). Solo renderiza: no ordena ni pagina — eso lo decide quien
- * la usa (ver useTablaLocal para el caso de datos en memoria).
+ * (no solo Solicitudes). Solo renderiza: no ordena ni pagina — eso lo decide quien la usa
+ * (orden y paginación reales de servidor, ver AdminSolicitudesView).
  */
 export function DataTable<T>({
   columnas,

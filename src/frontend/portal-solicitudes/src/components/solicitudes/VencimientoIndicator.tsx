@@ -1,5 +1,5 @@
 interface VencimientoIndicatorProps {
-  fechaCompromiso?: string;
+  fechaCompromiso: string | null;
   estaVencida: boolean;
 }
 

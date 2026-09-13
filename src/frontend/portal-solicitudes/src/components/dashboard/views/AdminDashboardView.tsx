@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { useResumenDashboard } from '../../../hooks/queries/useSolicitudes';
+import { useResumenDashboard } from '../../../hooks/queries/useDashboard';
 import { CodigosEstadoSolicitud } from '../../../types';
 import { StatusBadge } from '../../solicitudes/StatusBadge';
 import { obtenerTonoEstado } from '../../solicitudes/estadoTono';

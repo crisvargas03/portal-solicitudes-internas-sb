@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, ListChecks } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, Inbox, ListChecks } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Tono } from '../ui/tono';
 
@@ -13,4 +13,5 @@ export const METRICAS_CONFIG = {
   cerradas: { icono: CheckCircle2, tono: 'exito' },
   vencidas: { icono: AlertTriangle, tono: 'acento' },
   recientes: { icono: Clock3, tono: 'info' },
+  disponibles: { icono: Inbox, tono: 'info' },
 } satisfies Record<string, MetricaConfig>;

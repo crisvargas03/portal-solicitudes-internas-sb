@@ -30,16 +30,30 @@ public class ObtenerResumenDashboardQueryHandler : IQueryHandler<ObtenerResumenD
     public async Task<Resultado<ResumenDashboardDto>> HandleAsync(
         ObtenerResumenDashboardQuery query, CancellationToken cancellationToken = default)
     {
-        AlcanceSolicitudes alcance = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        Resultado<AlcanceSolicitudes> alcanceResultado = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        if (alcanceResultado.EsFallido)
+        {
+            return Resultado.Fallido<ResumenDashboardDto>(alcanceResultado.Error);
+        }
+
+        AlcanceSolicitudes alcance = alcanceResultado.Valor;
         DateTime ahora = _proveedorFechaHora.Ahora;
 
+        CriterioDashboard criterio = query.Asignacion switch
+        {
+            FiltroAsignacion.Asignadas => new CriterioDashboard(alcance, _usuarioActual.Id, false),
+            FiltroAsignacion.Disponibles => new CriterioDashboard(alcance, null, true),
+            _ => CriterioDashboard.DeAlcance(alcance),
+        };
+
         IReadOnlyDictionary<string, int> conteoPorEstado =
-            await _unitOfWork.Solicitudes.ContarPorCodigoDeEstadoAsync(alcance, cancellationToken);
+            await _unitOfWork.Solicitudes.ContarPorCodigoDeEstadoAsync(criterio, cancellationToken);
         IReadOnlyDictionary<int, int> conteoPorPrioridad =
-            await _unitOfWork.Solicitudes.ContarPorPrioridadAsync(alcance, cancellationToken);
-        int totalVencidas = await _unitOfWork.Solicitudes.ContarVencidasAsync(ahora, alcance, cancellationToken);
+            await _unitOfWork.Solicitudes.ContarPorPrioridadAsync(criterio, cancellationToken);
+        int totalVencidas = await _unitOfWork.Solicitudes.ContarVencidasAsync(ahora, criterio, cancellationToken);
         IReadOnlyList<Solicitud> recientes =
-            await _unitOfWork.Solicitudes.ObtenerRecientesAsync(CANTIDAD_RECIENTES, alcance, cancellationToken);
+            await _unitOfWork.Solicitudes.ObtenerRecientesAsync(CANTIDAD_RECIENTES, criterio, cancellationToken);
+        int totalSinAsignar = await _unitOfWork.Solicitudes.ContarSinAsignarAsync(alcance, cancellationToken);
 
         IReadOnlyList<EstadoSolicitud> estados = await _unitOfWork.EstadosSolicitud.ObtenerActivosOrdenadosAsync(cancellationToken);
         IReadOnlyList<Prioridad> prioridades = await _unitOfWork.Prioridades.ObtenerActivasOrdenadasPorNivelAsync(cancellationToken);
@@ -56,8 +70,10 @@ public class ObtenerResumenDashboardQueryHandler : IQueryHandler<ObtenerResumenD
 
         int totalSolicitudes = porEstado.Sum(conteo => conteo.Cantidad);
 
-        List<SolicitudResumenDto> recientesDto = recientes.Select(MapeosSolicitud.ASolicitudResumenDto).ToList();
+        List<SolicitudResumenDto> recientesDto = recientes
+            .Select(solicitud => MapeosSolicitud.ASolicitudResumenDto(solicitud, ahora))
+            .ToList();
 
-        return new ResumenDashboardDto(porEstado, porPrioridad, totalVencidas, totalSolicitudes, recientesDto);
+        return new ResumenDashboardDto(porEstado, porPrioridad, totalVencidas, totalSolicitudes, recientesDto, totalSinAsignar);
     }
 }

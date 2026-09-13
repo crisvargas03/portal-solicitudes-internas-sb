@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Inbox } from 'lucide-react';
 import { useSolicitudesAsignadas, useSolicitudesDisponibles } from '../../../hooks/queries/useSolicitudes';
-import { useAuthStore } from '../../../store/authStore';
-import type { Solicitud } from '../../../types';
 import { buttonClasses } from '../../ui/buttonClasses';
 import { EmptyState } from '../../ui/EmptyState';
+import { Pagination } from '../../ui/Pagination';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { SolicitudQueueItem } from '../SolicitudQueueItem';
 import { SolicitudFilters } from '../SolicitudFilters';
@@ -13,51 +12,62 @@ import type { ValoresFiltrosSolicitudes } from '../filtrosSolicitudes';
 
 type Grupo = 'asignadas' | 'disponibles';
 
-/** Prioridad primero, luego fecha de vencimiento (vencidas/próximas primero, sin fecha al final). */
-function ordenarPorUrgencia(solicitudes: Solicitud[]): Solicitud[] {
-  return [...solicitudes].sort((a, b) => {
-    const diferenciaPrioridad = (b.prioridad?.nivel ?? 0) - (a.prioridad?.nivel ?? 0);
-    if (diferenciaPrioridad !== 0) return diferenciaPrioridad;
-    if (!a.fechaCompromiso) return 1;
-    if (!b.fechaCompromiso) return -1;
-    return a.fechaCompromiso.localeCompare(b.fechaCompromiso);
-  });
-}
+const TAMANO_PAGINA = 10;
 
 /**
- * Analista: cola de trabajo, no una tabla genérica ni un Kanban. Dos grupos que nunca
- * se mezclan y nunca comparten la misma acción (ADR-0012: asignadas a sí mismo + sin responsable).
+ * Analista: cola de trabajo, no una tabla genérica ni un Kanban. Dos grupos que nunca se
+ * mezclan y nunca comparten la misma acción (ADR-0012: asignadas a sí mismo + sin responsable).
+ * El orden por urgencia (prioridad, luego vencimiento) lo aplica el servidor (orden=Urgencia,
+ * ver ADR-0026) — ya no se reordena en el cliente.
  */
 export function AnalistaQueueView() {
-  const usuario = useAuthStore((state) => state.user);
   const [grupo, setGrupo] = useState<Grupo>('asignadas');
   const [valoresFiltros, setValoresFiltros] = useState<ValoresFiltrosSolicitudes>(FILTROS_VACIOS);
-  const filtros = useMemo(() => convertirAFiltrosSolicitudes(valoresFiltros), [valoresFiltros]);
+  const [pagina, setPagina] = useState(1);
 
-  const { data: asignadas = [] } = useSolicitudesAsignadas(usuario?.id ?? 0, filtros);
-  const { data: disponibles = [] } = useSolicitudesDisponibles(filtros);
+  const filtros = useMemo(
+    () => ({
+      ...convertirAFiltrosSolicitudes(valoresFiltros),
+      orden: 'Urgencia' as const,
+      pagina,
+      tamanoPagina: TAMANO_PAGINA,
+    }),
+    [valoresFiltros, pagina],
+  );
 
-  const asignadasOrdenadas = useMemo(() => ordenarPorUrgencia(asignadas), [asignadas]);
-  const disponiblesOrdenadas = useMemo(() => ordenarPorUrgencia(disponibles), [disponibles]);
+  const { data: asignadas, isLoading: cargandoAsignadas } = useSolicitudesAsignadas(filtros);
+  const { data: disponibles, isLoading: cargandoDisponibles } = useSolicitudesDisponibles(filtros);
 
-  const filas = grupo === 'asignadas' ? asignadasOrdenadas : disponiblesOrdenadas;
+  const paginaActual = grupo === 'asignadas' ? asignadas : disponibles;
+  const filas = paginaActual?.elementos ?? [];
+  const cargando = grupo === 'asignadas' ? cargandoAsignadas : cargandoDisponibles;
+
+  function manejarFiltrosChange(valores: ValoresFiltrosSolicitudes) {
+    setValoresFiltros(valores);
+    setPagina(1);
+  }
+
+  function manejarGrupoChange(nuevoGrupo: Grupo) {
+    setGrupo(nuevoGrupo);
+    setPagina(1);
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl
           valor={grupo}
-          onChange={(valor) => setGrupo(valor as Grupo)}
+          onChange={(valor) => manejarGrupoChange(valor as Grupo)}
           opciones={[
-            { valor: 'asignadas', etiqueta: 'Asignadas a mí', contador: asignadasOrdenadas.length },
-            { valor: 'disponibles', etiqueta: 'Disponibles para tomar', contador: disponiblesOrdenadas.length },
+            { valor: 'asignadas', etiqueta: 'Asignadas a mí', contador: asignadas?.totalElementos ?? 0 },
+            { valor: 'disponibles', etiqueta: 'Disponibles para tomar', contador: disponibles?.totalElementos ?? 0 },
           ]}
         />
         {/* Sin filtro de Solicitante/Responsable: es implícitamente el propio analista. */}
-        <SolicitudFilters campos={['estado', 'prioridad']} valores={valoresFiltros} onChange={setValoresFiltros} />
+        <SolicitudFilters campos={['estado', 'prioridad']} valores={valoresFiltros} onChange={manejarFiltrosChange} />
       </div>
 
-      {filas.length === 0 ? (
+      {!cargando && filas.length === 0 ? (
         <EmptyState
           icono={Inbox}
           titulo={grupo === 'asignadas' ? 'No tienes solicitudes asignadas' : 'No hay solicitudes disponibles'}
@@ -68,25 +78,30 @@ export function AnalistaQueueView() {
           }
         />
       ) : (
-        <ul className="flex flex-col gap-2">
-          {filas.map((solicitud) => (
-            <SolicitudQueueItem
-              key={solicitud.id}
-              solicitud={solicitud}
-              accion={
-                grupo === 'asignadas' ? (
-                  <button type="button" className={buttonClasses('secundario', 'sm')}>
-                    Cambiar estado
-                  </button>
-                ) : (
-                  <button type="button" className={buttonClasses('primario', 'sm')}>
-                    Tomar
-                  </button>
-                )
-              }
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-2">
+            {filas.map((solicitud) => (
+              <SolicitudQueueItem
+                key={solicitud.id}
+                solicitud={solicitud}
+                accion={
+                  grupo === 'asignadas' ? (
+                    <button type="button" className={buttonClasses('secundario', 'sm')}>
+                      Cambiar estado
+                    </button>
+                  ) : (
+                    <button type="button" className={buttonClasses('primario', 'sm')}>
+                      Tomar
+                    </button>
+                  )
+                }
+              />
+            ))}
+          </ul>
+          {paginaActual && (
+            <Pagination pagina={paginaActual.pagina} totalPaginas={paginaActual.totalPaginas} onPaginaChange={setPagina} />
+          )}
+        </>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
-import { USUARIOS } from '../../mocks/catalogos';
 import { useAreas, useEstadosSolicitud, usePrioridades, useTiposSolicitud } from '../../hooks/queries/useCatalogos';
+import { useAnalistas, useUsuarios } from '../../hooks/queries/useUsuarios';
 import { FilterSelect } from '../ui/FilterSelect';
 import type { CampoFiltro, ValoresFiltrosSolicitudes } from './filtrosSolicitudes';
 
@@ -20,19 +20,18 @@ export function SolicitudFilters({ campos, valores, onChange }: SolicitudFilters
   const { data: prioridades = [] } = usePrioridades();
   const { data: estadosSolicitud = [] } = useEstadosSolicitud();
 
-  // Usuarios (solicitantes/analistas para los filtros de "Solicitante"/"Responsable") sigue
-  // en mocks: no hay un endpoint de catálogo de usuarios en el alcance de este cambio.
-  const analistas = USUARIOS.filter((usuario) => usuario.rol === 'Analista');
-  const solicitantes = USUARIOS.filter((usuario) => usuario.rol === 'Solicitante');
+  const { data: analistas = [] } = useAnalistas();
+  const { data: paginaSolicitantes } = useUsuarios({ rol: 'Solicitante', soloActivos: true });
+  const solicitantes = paginaSolicitantes?.elementos ?? [];
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {campos.includes('estado') && (
         <FilterSelect
           etiqueta="Estado"
-          valor={valores.estadoCodigo}
-          onChange={(valor) => actualizar('estadoCodigo', valor)}
-          opciones={estadosSolicitud.map((estado) => ({ valor: estado.codigo, etiqueta: estado.nombre }))}
+          valor={valores.estadoId}
+          onChange={(valor) => actualizar('estadoId', valor)}
+          opciones={estadosSolicitud.map((estado) => ({ valor: String(estado.id), etiqueta: estado.nombre }))}
         />
       )}
       {campos.includes('prioridad') && (

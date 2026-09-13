@@ -1,53 +1,52 @@
 import type {
   AdjuntoDetalle,
   ComentarioDetalle,
-  ResumenDashboard,
+  PaginaResultado,
   RolUsuario,
   Solicitud,
   SolicitudDetalle,
   TransicionDisponible,
 } from '../types';
-import { construirResumenDashboard } from '../mocks/dashboard';
-import { MOCK_SOLICITUDES } from '../mocks/solicitudes';
 import { obtenerTransicionesDisponibles } from '../mocks/transiciones';
-import { get, patch, post, put } from '../lib/apiClient';
+import { aQueryString, get, patch, post, put } from '../lib/apiClient';
 
-// Todo lo de este archivo (salvo el detalle y las funciones al final) opera sobre
-// MOCK_SOLICITUDES. Cuando se conecte la API real para lista/dashboard, solo este archivo
-// cambia — el resto de la app consume los hooks de useSolicitudes.ts.
-// getSolicitudById, crearSolicitud, crearComentario, crearAdjunto, actualizarSolicitudCompleta
-// y cambiarAsignacion ya llaman a la API real: el detalle y sus mutaciones no tienen
-// equivalente razonable en el mock (comentarios/adjuntos con autor y fecha reales).
+/**
+ * Corte adicional por asignacion dentro del alcance ya recortado por rol (ADR-0026/0027):
+ * nunca sustituye el alcance del servidor, solo lo estrecha. Valores en PascalCase para que
+ * el binding de enum del backend los resuelva igual que RolUsuario (ver usuarioService.ts).
+ */
+export type FiltroAsignacion = 'Todas' | 'Asignadas' | 'Disponibles';
+
+/** Whitelist de ordenamiento server-side (ver ADR-0026) — nunca una columna arbitraria. */
+export type OrdenSolicitudes = 'FechaCreacion' | 'Codigo' | 'Titulo' | 'Prioridad' | 'Urgencia';
+
+export type DireccionOrden = 'Asc' | 'Desc';
 
 export interface FiltrosSolicitudes {
-  estadoCodigo?: string;
+  estadoId?: number;
   prioridadId?: number;
   areaId?: number;
   tipoSolicitudId?: number;
   usuarioSolicitanteId?: number;
   usuarioAsignadoId?: number;
-  fechaDesde?: string;
-  fechaHasta?: string;
+  fechaCreacionDesde?: string;
+  fechaCreacionHasta?: string;
+  textoBusqueda?: string;
   soloVencidas?: boolean;
+  asignacion?: FiltroAsignacion;
+  orden?: OrdenSolicitudes;
+  direccion?: DireccionOrden;
+  pagina?: number;
+  tamanoPagina?: number;
 }
 
-function aplicarFiltros(solicitudes: Solicitud[], filtros: FiltrosSolicitudes = {}): Solicitud[] {
-  return solicitudes.filter((solicitud) => {
-    if (filtros.estadoCodigo && solicitud.estado?.codigo !== filtros.estadoCodigo) return false;
-    if (filtros.prioridadId && solicitud.prioridadId !== filtros.prioridadId) return false;
-    if (filtros.areaId && solicitud.areaId !== filtros.areaId) return false;
-    if (filtros.tipoSolicitudId && solicitud.tipoSolicitudId !== filtros.tipoSolicitudId) return false;
-    if (filtros.usuarioSolicitanteId && solicitud.usuarioSolicitanteId !== filtros.usuarioSolicitanteId) return false;
-    if (filtros.usuarioAsignadoId && solicitud.usuarioAsignadoId !== filtros.usuarioAsignadoId) return false;
-    if (filtros.fechaDesde && solicitud.fechaCreacion < filtros.fechaDesde) return false;
-    if (filtros.fechaHasta && solicitud.fechaCreacion > filtros.fechaHasta) return false;
-    if (filtros.soloVencidas && !solicitud.estaVencida) return false;
-    return true;
-  });
-}
-
-export async function getSolicitudes(filtros: FiltrosSolicitudes = {}): Promise<Solicitud[]> {
-  return aplicarFiltros(MOCK_SOLICITUDES, filtros);
+/**
+ * GET /api/solicitudes: el alcance por rol (ADR-0012) ya viene aplicado en el servidor antes
+ * de estos filtros — nunca hace falta (ni sirve) mandar usuarioSolicitanteId/usuarioAsignadoId
+ * para acotar a "lo mio", el servidor los ignora si intentan ampliar el alcance.
+ */
+export async function getSolicitudes(filtros: FiltrosSolicitudes = {}): Promise<PaginaResultado<Solicitud>> {
+  return get<PaginaResultado<Solicitud>>(`/solicitudes${aQueryString({ ...filtros })}`);
 }
 
 /** GET /api/solicitudes/{id}: detalle real, con historial, comentarios y adjuntos ya filtrados por rol. */
@@ -55,37 +54,28 @@ export async function getSolicitudById(id: number): Promise<SolicitudDetalle> {
   return get<SolicitudDetalle>(`/solicitudes/${id}`);
 }
 
-/** Vista Solicitante: ADR-0012 — solo sus propias solicitudes. */
-export async function getMisSolicitudes(usuarioSolicitanteId: number, filtros: FiltrosSolicitudes = {}): Promise<Solicitud[]> {
-  return aplicarFiltros(MOCK_SOLICITUDES, { ...filtros, usuarioSolicitanteId });
+/** Vista Solicitante (ADR-0012): el servidor ya acota a las propias, sin parametro adicional. */
+export async function getMisSolicitudes(filtros: FiltrosSolicitudes = {}): Promise<PaginaResultado<Solicitud>> {
+  return getSolicitudes(filtros);
 }
 
-/** Vista Analista, grupo "Asignadas a mí". */
-export async function getAsignadas(usuarioAsignadoId: number, filtros: FiltrosSolicitudes = {}): Promise<Solicitud[]> {
-  return aplicarFiltros(MOCK_SOLICITUDES, { ...filtros, usuarioAsignadoId });
+/** Cola de Analista, grupo "Asignadas a mí" (ADR-0026). */
+export async function getAsignadas(filtros: FiltrosSolicitudes = {}): Promise<PaginaResultado<Solicitud>> {
+  return getSolicitudes({ ...filtros, asignacion: 'Asignadas' });
 }
 
-/** Vista Analista, grupo "Disponibles para tomar" — sin responsable asignado. */
-export async function getDisponibles(filtros: FiltrosSolicitudes = {}): Promise<Solicitud[]> {
-  return aplicarFiltros(
-    MOCK_SOLICITUDES.filter((solicitud) => !solicitud.usuarioAsignadoId),
-    filtros,
-  );
+/** Cola de Analista, grupo "Disponibles para tomar" — sin responsable asignado (ADR-0026). */
+export async function getDisponibles(filtros: FiltrosSolicitudes = {}): Promise<PaginaResultado<Solicitud>> {
+  return getSolicitudes({ ...filtros, asignacion: 'Disponibles' });
 }
 
 /**
  * Transiciones válidas para el estado actual y el rol dado — ya filtradas, nunca una lista libre.
- * Sigue operando sobre MOCK_SOLICITUDES (no sobre getSolicitudById, que ya es la API real):
+ * `estadoActualCodigo` lo trae quien llama (el detalle real ya cargado, ver getSolicitudById):
  * conectar el endpoint real GET /api/solicitudes/{id}/transiciones queda fuera de este cambio.
  */
-export async function getTransiciones(id: number, rol: RolUsuario): Promise<TransicionDisponible[]> {
-  const solicitud = MOCK_SOLICITUDES.find((solicitud) => solicitud.id === id);
-  if (!solicitud?.estado) return [];
-  return obtenerTransicionesDisponibles(solicitud.estado.codigo, rol);
-}
-
-export async function getResumenDashboard(filtros: FiltrosSolicitudes = {}): Promise<ResumenDashboard> {
-  return construirResumenDashboard(aplicarFiltros(MOCK_SOLICITUDES, filtros));
+export async function getTransiciones(estadoActualCodigo: string, rol: RolUsuario): Promise<TransicionDisponible[]> {
+  return obtenerTransicionesDisponibles(estadoActualCodigo, rol);
 }
 
 export interface ActualizarSolicitudCompletaInput {

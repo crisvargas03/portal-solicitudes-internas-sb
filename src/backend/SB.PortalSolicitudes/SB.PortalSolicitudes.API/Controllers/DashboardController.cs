@@ -19,10 +19,10 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("resumen")]
-    public async Task<IActionResult> ObtenerResumen(CancellationToken cancellationToken)
+    public async Task<IActionResult> ObtenerResumen(
+        [FromQuery] ObtenerResumenDashboardQuery consulta, CancellationToken cancellationToken)
     {
-        var resultado = await _queryMediator.QueryAsync(
-            new ObtenerResumenDashboardQuery(), cancellationToken: cancellationToken);
+        var resultado = await _queryMediator.QueryAsync(consulta, cancellationToken: cancellationToken);
 
         return resultado.AResultadoHttp();
     }

@@ -106,7 +106,7 @@ export function SolicitudDetail() {
         <div>
           <p className="text-xs text-slate-500">Vencimiento</p>
           <div className="mt-1">
-            <VencimientoIndicator fechaCompromiso={solicitud.fechaCompromiso ?? undefined} estaVencida={solicitud.estaVencida} />
+            <VencimientoIndicator fechaCompromiso={solicitud.fechaCompromiso} estaVencida={solicitud.estaVencida} />
           </div>
         </div>
       </div>

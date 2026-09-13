@@ -27,7 +27,14 @@ public class ObtenerSolicitudesPaginadoQueryHandler
     public async Task<Resultado<ResultadoPaginado<SolicitudResumenDto>>> HandleAsync(
         ObtenerSolicitudesPaginadoQuery query, CancellationToken cancellationToken = default)
     {
-        AlcanceSolicitudes alcance = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        Resultado<AlcanceSolicitudes> alcanceResultado = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        if (alcanceResultado.EsFallido)
+        {
+            return Resultado.Fallido<ResultadoPaginado<SolicitudResumenDto>>(alcanceResultado.Error);
+        }
+
+        AlcanceSolicitudes alcance = alcanceResultado.Valor;
+        DateTime ahora = _proveedorFechaHora.Ahora;
 
         FiltroSolicitudes filtro = new()
         {
@@ -38,18 +45,24 @@ public class ObtenerSolicitudesPaginadoQueryHandler
             UsuarioSolicitanteId = alcance.UsuarioSolicitanteId ?? query.UsuarioSolicitanteId,
             UsuarioAsignadoId = alcance.UsuarioAsignadoId ?? query.UsuarioAsignadoId,
             IncluirSinAsignar = alcance.IncluirSinAsignar,
+            SoloSinAsignar = query.Asignacion == FiltroAsignacion.Disponibles,
+            AsignadasAUsuarioId = query.Asignacion == FiltroAsignacion.Asignadas ? _usuarioActual.Id : null,
             FechaCreacionDesde = query.FechaCreacionDesde,
             FechaCreacionHasta = query.FechaCreacionHasta,
             TextoBusqueda = query.TextoBusqueda,
             SoloVencidas = query.SoloVencidas,
-            FechaReferencia = _proveedorFechaHora.Ahora,
+            FechaReferencia = ahora,
+            Orden = query.Orden,
+            Direccion = query.Direccion,
             Pagina = query.Pagina,
             TamanoPagina = query.TamanoPagina
         };
 
         ResultadoPaginado<Solicitud> pagina = await _unitOfWork.Solicitudes.ObtenerPaginadoAsync(filtro, cancellationToken);
 
-        List<SolicitudResumenDto> elementos = pagina.Elementos.Select(MapeosSolicitud.ASolicitudResumenDto).ToList();
+        List<SolicitudResumenDto> elementos = pagina.Elementos
+            .Select(solicitud => MapeosSolicitud.ASolicitudResumenDto(solicitud, ahora))
+            .ToList();
 
         return new ResultadoPaginado<SolicitudResumenDto>(elementos, pagina.TotalElementos, pagina.Pagina, pagina.TamanoPagina);
     }

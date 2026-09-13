@@ -12,10 +12,19 @@ namespace SB.PortalSolicitudes.Application.Features.Solicitudes;
 /// </summary>
 public static class MapeosSolicitud
 {
-    public static SolicitudResumenDto ASolicitudResumenDto(Solicitud solicitud)
+    /// <summary>
+    /// Usado por comandos que devuelven la entidad recien mutada: aqui "ahora" es solo una
+    /// foto del instante actual, no un criterio de filtrado que deba coincidir con otra
+    /// consulta (a diferencia del listado y el dashboard, que sí reciben su propio
+    /// <c>ahora</c> explicito para que <c>EstaVencida</c> nunca discrepe de <c>SoloVencidas</c>).
+    /// </summary>
+    public static SolicitudResumenDto ASolicitudResumenDto(Solicitud solicitud) =>
+        ASolicitudResumenDto(solicitud, DateTime.UtcNow);
+
+    public static SolicitudResumenDto ASolicitudResumenDto(Solicitud solicitud, DateTime ahora)
     {
         bool estaVencida = solicitud.FechaCompromiso is not null
-            && solicitud.FechaCompromiso < DateTime.UtcNow
+            && solicitud.FechaCompromiso < ahora
             && solicitud.Estado is not null
             && !solicitud.Estado.EsFinal;
 

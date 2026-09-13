@@ -21,4 +21,6 @@ export interface ResumenDashboard {
   totalVencidas: number;
   totalSolicitudes: number;
   recientes: Solicitud[];
+  /** Sin responsable, dentro del alcance del usuario — ajeno al `asignacion` activo (ver ADR-0027). */
+  totalSinAsignar: number;
 }

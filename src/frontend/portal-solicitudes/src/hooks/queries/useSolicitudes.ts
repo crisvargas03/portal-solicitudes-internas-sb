@@ -9,7 +9,6 @@ import {
   getAsignadas,
   getDisponibles,
   getMisSolicitudes,
-  getResumenDashboard,
   getSolicitudById,
   getSolicitudes,
   getTransiciones,
@@ -33,22 +32,14 @@ export function useSolicitud(id: number) {
   });
 }
 
-/** Vista Solicitante. */
-export function useMisSolicitudes(usuarioSolicitanteId: number, filtros: FiltrosSolicitudes = {}) {
-  return useQuery({
-    queryKey: ['solicitudes', 'mias', usuarioSolicitanteId, filtros],
-    queryFn: () => getMisSolicitudes(usuarioSolicitanteId, filtros),
-    enabled: Number.isFinite(usuarioSolicitanteId) && usuarioSolicitanteId > 0,
-  });
+/** Vista Solicitante (ADR-0012): el servidor deriva "las mias" del token, sin usuarioId explicito. */
+export function useMisSolicitudes(filtros: FiltrosSolicitudes = {}) {
+  return useQuery({ queryKey: ['solicitudes', 'mias', filtros], queryFn: () => getMisSolicitudes(filtros) });
 }
 
 /** Cola de Analista, grupo "Asignadas a mí". */
-export function useSolicitudesAsignadas(usuarioAsignadoId: number, filtros: FiltrosSolicitudes = {}) {
-  return useQuery({
-    queryKey: ['solicitudes', 'asignadas', usuarioAsignadoId, filtros],
-    queryFn: () => getAsignadas(usuarioAsignadoId, filtros),
-    enabled: Number.isFinite(usuarioAsignadoId) && usuarioAsignadoId > 0,
-  });
+export function useSolicitudesAsignadas(filtros: FiltrosSolicitudes = {}) {
+  return useQuery({ queryKey: ['solicitudes', 'asignadas', filtros], queryFn: () => getAsignadas(filtros) });
 }
 
 /** Cola de Analista, grupo "Disponibles para tomar". */
@@ -56,16 +47,12 @@ export function useSolicitudesDisponibles(filtros: FiltrosSolicitudes = {}) {
   return useQuery({ queryKey: ['solicitudes', 'disponibles', filtros], queryFn: () => getDisponibles(filtros) });
 }
 
-export function useTransiciones(id: number, rol: RolUsuario | undefined) {
+export function useTransiciones(estadoActualCodigo: string | undefined, rol: RolUsuario | undefined) {
   return useQuery({
-    queryKey: ['solicitudes', id, 'transiciones', rol],
-    queryFn: () => getTransiciones(id, rol as RolUsuario),
-    enabled: Number.isFinite(id) && Boolean(rol),
+    queryKey: ['solicitudes', 'transiciones', estadoActualCodigo, rol],
+    queryFn: () => getTransiciones(estadoActualCodigo as string, rol as RolUsuario),
+    enabled: Boolean(estadoActualCodigo) && Boolean(rol),
   });
-}
-
-export function useResumenDashboard(filtros: FiltrosSolicitudes = {}) {
-  return useQuery({ queryKey: ['dashboard', 'resumen', filtros], queryFn: () => getResumenDashboard(filtros) });
 }
 
 /** Edicion completa de Administrador (ver ADR-0021). */
@@ -89,6 +76,7 @@ export function useCambiarAsignacion() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
       queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -100,6 +88,7 @@ export function useCrearSolicitud() {
     mutationFn: (datos: CrearSolicitudInput) => crearSolicitud(datos),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

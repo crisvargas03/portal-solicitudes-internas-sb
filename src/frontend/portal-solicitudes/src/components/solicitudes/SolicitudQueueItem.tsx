@@ -10,14 +10,14 @@ interface SolicitudQueueItemProps {
   accion: ReactNode;
 }
 
-function venceHoy(fechaCompromiso?: string): boolean {
+function venceHoy(fechaCompromiso: string | null): boolean {
   if (!fechaCompromiso) return false;
   return fechaCompromiso === new Date().toISOString().slice(0, 10);
 }
 
 /** Una fila de la cola de Analista: barra de prioridad + texto secundario + acción única del grupo. */
 export function SolicitudQueueItem({ solicitud, accion }: SolicitudQueueItemProps) {
-  const tonoPrioridad = obtenerTonoPrioridad(solicitud.prioridad?.nivel ?? 0);
+  const tonoPrioridad = obtenerTonoPrioridad(solicitud.prioridad.nivel);
   const resaltar = solicitud.estaVencida || venceHoy(solicitud.fechaCompromiso);
 
   return (
@@ -29,7 +29,7 @@ export function SolicitudQueueItem({ solicitud, accion }: SolicitudQueueItemProp
             {solicitud.titulo}
           </Link>
           <p className="mt-0.5 truncate text-xs text-slate-500">
-            {solicitud.codigo} · {solicitud.area?.nombre} · {solicitud.usuarioSolicitante?.nombre}
+            {solicitud.codigo} · {solicitud.area.nombre} · {solicitud.solicitante.nombre}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-4">
