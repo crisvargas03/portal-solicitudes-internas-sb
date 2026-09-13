@@ -1,15 +1,19 @@
 import { NavLink } from 'react-router';
 import logo from '../../assets/logo-superintendencia-de-bancos.png';
 import { NAV_ITEMS } from '../../config/navigation';
+import { useRolActual } from '../../hooks/useRolActual';
 
 export function Sidebar() {
+  const { rol } = useRolActual();
+  const items = NAV_ITEMS.filter((item) => !item.rolesPermitidos || (rol && item.rolesPermitidos.includes(rol)));
+
   return (
     <aside className="flex w-60 shrink-0 flex-col bg-navy">
       <div className="flex items-center px-6 py-6">
         <img src={logo} alt="Superintendencia de Bancos" className="h-10 w-auto" />
       </div>
       <nav className="flex flex-col gap-1 px-3">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router';
-import { ContentCard } from '../common/ContentCard';
+import { Card } from '../ui/Card';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
@@ -10,9 +10,9 @@ export function AppLayout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-y-auto p-8">
-          <ContentCard>
+          <Card>
             <Outlet />
-          </ContentCard>
+          </Card>
         </main>
       </div>
     </div>

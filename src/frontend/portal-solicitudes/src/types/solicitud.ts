@@ -24,4 +24,6 @@ export interface Solicitud {
   usuarioSolicitante?: Usuario;
   usuarioAsignadoId?: number;
   usuarioAsignado?: Usuario;
+  /** Calculado en el servidor a partir de fechaCompromiso y estado — nunca recalcular en el cliente. */
+  estaVencida: boolean;
 }

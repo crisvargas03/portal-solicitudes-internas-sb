@@ -1,5 +1,14 @@
 import { ArrowLeft } from 'lucide-react';
 import { Link, useParams } from 'react-router';
+import { PriorityBadge } from '../components/solicitudes/PriorityBadge';
+import { StatusBadge } from '../components/solicitudes/StatusBadge';
+import { PRIORIDADES, obtenerEstadoPorCodigo } from '../mocks/catalogos';
+import { CodigosEstadoSolicitud } from '../types';
+
+// Pendiente de datos reales del backend — estado/prioridad de ejemplo solo para
+// mostrar los badges compartidos con la lista y el dashboard.
+const ESTADO_MOCK = obtenerEstadoPorCodigo(CodigosEstadoSolicitud.EN_ANALISIS);
+const PRIORIDAD_MOCK = PRIORIDADES.find((prioridad) => prioridad.nivel === 3);
 
 const MOCK_HISTORIAL = [
   { id: 1, estado: 'Registrada', usuario: 'María Peña', fecha: '2026-09-01' },
@@ -29,8 +38,18 @@ export function SolicitudDetail() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Field label="Estado" value="En análisis" />
-        <Field label="Prioridad" value="Alta" />
+        <div>
+          <p className="text-xs text-slate-500">Estado</p>
+          <div className="mt-1">
+            <StatusBadge estado={ESTADO_MOCK} />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Prioridad</p>
+          <div className="mt-1">
+            <PriorityBadge prioridad={PRIORIDAD_MOCK} />
+          </div>
+        </div>
         <Field label="Área" value="Tecnología" />
         <Field label="Responsable" value="Carlos Díaz" />
       </div>
