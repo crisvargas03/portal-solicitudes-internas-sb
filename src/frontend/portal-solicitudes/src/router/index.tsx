@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { RutaPorRol } from '../components/common/RutaPorRol';
 import { RutaProtegida } from '../components/common/RutaProtegida';
 import { AppLayout } from '../components/layout/AppLayout';
+import { AdminCatalogos } from '../pages/AdminCatalogos';
+import { AdminUsuarios } from '../pages/AdminUsuarios';
 import { Dashboard } from '../pages/Dashboard';
 import { Login } from '../pages/Login';
 import { SolicitudDetail } from '../pages/SolicitudDetail';
@@ -37,6 +39,22 @@ export const router = createBrowserRouter([
 				),
 			},
 			// La propiedad de la solicitud y la ventana de edición (solo en REGISTRADA)
+			{
+				path: 'catalogos',
+				element: (
+					<RutaPorRol rolesPermitidos={['Administrador']}>
+						<AdminCatalogos />
+					</RutaPorRol>
+				),
+			},
+			{
+				path: 'usuarios',
+				element: (
+					<RutaPorRol rolesPermitidos={['Administrador']}>
+						<AdminUsuarios />
+					</RutaPorRol>
+				),
+			},
 			{ path: '*', element: <Navigate to='/dashboard' replace /> },
 		],
 	},

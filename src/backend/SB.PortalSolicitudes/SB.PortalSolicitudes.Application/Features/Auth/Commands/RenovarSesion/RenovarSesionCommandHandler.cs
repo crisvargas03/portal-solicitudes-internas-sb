@@ -53,7 +53,7 @@ public class RenovarSesionCommandHandler : ICommandHandler<RenovarSesionCommand,
 
         _logger.LogInformation("Sesion renovada para UsuarioId={UsuarioId}", usuario.Id);
 
-        UsuarioResumenDto usuarioDto = new(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString());
+        UsuarioResumenDto usuarioDto = new(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString(), usuario.Activo);
 
         return new SesionDto(token, expiraEn, usuarioDto);
     }

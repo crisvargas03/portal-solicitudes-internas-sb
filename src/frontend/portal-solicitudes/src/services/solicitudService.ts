@@ -2,9 +2,12 @@ import type { ResumenDashboard, RolUsuario, Solicitud, TransicionDisponible } fr
 import { construirResumenDashboard } from '../mocks/dashboard';
 import { MOCK_SOLICITUDES } from '../mocks/solicitudes';
 import { obtenerTransicionesDisponibles } from '../mocks/transiciones';
+import { patch, put } from '../lib/apiClient';
 
 // Todo lo de este archivo opera sobre MOCK_SOLICITUDES. Cuando se conecte la API real,
 // solo este archivo cambia — el resto de la app consume los hooks de useSolicitudes.ts.
+// Excepcion: las dos funciones al final ya llaman a la API real, porque son mutaciones
+// nuevas de Administrador (edicion completa y asignacion) sin equivalente en el mock.
 
 export interface FiltrosSolicitudes {
   estadoCodigo?: string;
@@ -68,4 +71,26 @@ export async function getTransiciones(id: number, rol: RolUsuario): Promise<Tran
 
 export async function getResumenDashboard(filtros: FiltrosSolicitudes = {}): Promise<ResumenDashboard> {
   return construirResumenDashboard(aplicarFiltros(MOCK_SOLICITUDES, filtros));
+}
+
+export interface ActualizarSolicitudCompletaInput {
+  titulo: string;
+  descripcion: string;
+  tipoSolicitudId: number;
+  prioridadId: number;
+  areaId: number;
+}
+
+/**
+ * PUT /api/solicitudes/{id}: edicion completa exclusiva de Administrador (ver ADR-0021).
+ * Tipa el retorno como `Solicitud` de forma aproximada — el DTO real (SolicitudResumenDto)
+ * no trae los *Id planos, solo los objetos anidados; no hay consumidor hoy que dependa de eso.
+ */
+export async function actualizarSolicitudCompleta(id: number, datos: ActualizarSolicitudCompletaInput): Promise<Solicitud> {
+  return put<Solicitud>(`/solicitudes/${id}`, datos);
+}
+
+/** PATCH /api/solicitudes/{id}/asignacion: usuarioAsignadoId nulo desasigna (ver ADR-0012). */
+export async function cambiarAsignacion(id: number, usuarioAsignadoId: number | null): Promise<Solicitud> {
+  return patch<Solicitud>(`/solicitudes/${id}/asignacion`, { usuarioAsignadoId });
 }

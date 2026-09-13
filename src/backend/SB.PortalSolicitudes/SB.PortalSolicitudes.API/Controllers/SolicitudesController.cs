@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SB.PortalSolicitudes.API.Common;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.ActualizarSolicitud;
+using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.AdminActualizarSolicitud;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CambiarAsignacion;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CambiarEstado;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CrearAdjunto;
@@ -62,6 +63,19 @@ public class SolicitudesController : ControllerBase
         ActualizarSolicitudCommand comando = new(
             id, cuerpo.Titulo, cuerpo.Descripcion, cuerpo.TipoSolicitudId, cuerpo.PrioridadId, cuerpo.AreaId,
             cuerpo.FechaCompromiso);
+
+        var resultado = await _commandMediator.SendAsync(comando, cancellationToken: cancellationToken);
+
+        return resultado.AResultadoHttp();
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> ActualizarCompleta(
+        int id, [FromBody] ActualizarSolicitudCompletaRequest cuerpo, CancellationToken cancellationToken)
+    {
+        AdminActualizarSolicitudCommand comando = new(
+            id, cuerpo.Titulo, cuerpo.Descripcion, cuerpo.TipoSolicitudId, cuerpo.PrioridadId, cuerpo.AreaId);
 
         var resultado = await _commandMediator.SendAsync(comando, cancellationToken: cancellationToken);
 
@@ -131,6 +145,14 @@ public sealed record ActualizarSolicitudRequest(
     int? PrioridadId,
     int? AreaId,
     DateTime? FechaCompromiso);
+
+/// <summary>Cuerpo de <c>PUT /api/solicitudes/{id}</c>: edicion completa, exclusiva de Administrador (ver ADR-0020).</summary>
+public sealed record ActualizarSolicitudCompletaRequest(
+    string Titulo,
+    string Descripcion,
+    int TipoSolicitudId,
+    int PrioridadId,
+    int AreaId);
 
 public sealed record CambiarEstadoRequest(int EstadoDestinoId, string? Comentario);
 

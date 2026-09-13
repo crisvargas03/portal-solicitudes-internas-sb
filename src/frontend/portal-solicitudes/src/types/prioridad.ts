@@ -5,3 +5,8 @@ export interface Prioridad {
   /** Severidad relativa: a mayor numero, mayor urgencia. */
   nivel: number;
 }
+
+/** Forma de GET /api/prioridades/todas (Administrador): incluye inactivas. */
+export interface PrioridadAdmin extends Prioridad {
+  activo: boolean;
+}

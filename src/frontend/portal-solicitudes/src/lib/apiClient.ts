@@ -106,6 +106,14 @@ export function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig
   return apiClient.post(url, data, config) as unknown as Promise<T>;
 }
 
+export function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  return apiClient.patch(url, data, config) as unknown as Promise<T>;
+}
+
+export function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  return apiClient.put(url, data, config) as unknown as Promise<T>;
+}
+
 /** Serializa un objeto de filtros a query-string, omitiendo undefined/null/''. Reutilizable por cualquier servicio. */
 export function aQueryString(filtros: Record<string, unknown>): string {
   const params = new URLSearchParams();

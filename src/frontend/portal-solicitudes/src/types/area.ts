@@ -3,3 +3,8 @@ export interface Area {
   id: number;
   nombre: string;
 }
+
+/** Forma de GET /api/areas/todas (Administrador): incluye inactivas. */
+export interface AreaAdmin extends Area {
+  activo: boolean;
+}

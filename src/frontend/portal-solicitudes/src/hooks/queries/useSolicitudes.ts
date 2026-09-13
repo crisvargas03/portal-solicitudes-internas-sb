@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RolUsuario } from '../../types';
 import {
+  actualizarSolicitudCompleta,
+  cambiarAsignacion,
   getAsignadas,
   getDisponibles,
   getMisSolicitudes,
@@ -9,7 +11,7 @@ import {
   getSolicitudes,
   getTransiciones,
 } from '../../services/solicitudService';
-import type { FiltrosSolicitudes } from '../../services/solicitudService';
+import type { ActualizarSolicitudCompletaInput, FiltrosSolicitudes } from '../../services/solicitudService';
 
 export function useSolicitudes(filtros: FiltrosSolicitudes = {}) {
   return useQuery({ queryKey: ['solicitudes', filtros], queryFn: () => getSolicitudes(filtros) });
@@ -56,4 +58,29 @@ export function useTransiciones(id: number, rol: RolUsuario | undefined) {
 
 export function useResumenDashboard(filtros: FiltrosSolicitudes = {}) {
   return useQuery({ queryKey: ['dashboard', 'resumen', filtros], queryFn: () => getResumenDashboard(filtros) });
+}
+
+/** Edicion completa de Administrador (ver ADR-0021). */
+export function useActualizarSolicitudCompleta() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, datos }: { id: number; datos: ActualizarSolicitudCompletaInput }) =>
+      actualizarSolicitudCompleta(id, datos),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
+      queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+    },
+  });
+}
+
+export function useCambiarAsignacion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, usuarioAsignadoId }: { id: number; usuarioAsignadoId: number | null }) =>
+      cambiarAsignacion(id, usuarioAsignadoId),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
+      queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+    },
+  });
 }

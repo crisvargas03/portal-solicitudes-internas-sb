@@ -49,7 +49,7 @@ public class IniciarSesionCommandHandler : ICommandHandler<IniciarSesionCommand,
 
         _logger.LogInformation("Inicio de sesion exitoso para {Email}", command.Email);
 
-        UsuarioResumenDto usuarioDto = new(usuario!.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString());
+        UsuarioResumenDto usuarioDto = new(usuario!.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString(), usuario.Activo);
 
         return new SesionDto(token, expiraEn, usuarioDto);
     }

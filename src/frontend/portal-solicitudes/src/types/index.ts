@@ -6,6 +6,7 @@ export * from './dashboard';
 export * from './estadoSolicitud';
 export * from './historialEstado';
 export * from './notificacion';
+export * from './paginacion';
 export * from './prioridad';
 export * from './rolUsuario';
 export * from './solicitud';
