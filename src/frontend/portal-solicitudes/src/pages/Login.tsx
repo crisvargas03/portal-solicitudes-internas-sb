@@ -1,94 +1,127 @@
-import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router';
-import logo from '../assets/logo-superintendencia-de-bancos.png';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
+import logo from '../assets/SUPERINTENDENCIA_DE_BANCOS.png';
+import { ErrorApi } from '../lib/apiClient';
+import { loginSchema, type LoginFormValues } from '../schemas/loginSchema';
+import { iniciarSesion } from '../services/authService';
+import { Button } from '../components/ui/Button';
+import { FormField } from '../components/ui/FormField';
 import { useAuthStore } from '../store/authStore';
-import type { RolUsuario } from '../types';
-
-// TODO: eliminar al conectar POST /api/auth/login — selector temporal para poder
-// probar las tres vistas por rol sin backend.
-const ROLES_DEMO: { rol: RolUsuario; etiqueta: string }[] = [
-  { rol: 'Administrador', etiqueta: 'Administrador' },
-  { rol: 'Analista', etiqueta: 'Analista' },
-  { rol: 'Solicitante', etiqueta: 'Solicitante' },
-];
-
-const USUARIO_DEMO_POR_ROL: Record<RolUsuario, { id: number; nombre: string }> = {
-  Administrador: { id: 1, nombre: 'Admin Principal' },
-  Analista: { id: 2, nombre: 'Carlos Díaz' },
-  Solicitante: { id: 4, nombre: 'María Peña' },
-};
 
 export function Login() {
-  const navigate = useNavigate();
-  const login = useAuthStore((state) => state.login);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rol, setRol] = useState<RolUsuario>('Solicitante');
+	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
+	const user = useAuthStore(state => state.user);
+	const guardarSesion = useAuthStore(state => state.iniciarSesion);
+	const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const demo = USUARIO_DEMO_POR_ROL[rol];
-    login({ id: demo.id, nombre: demo.nombre, email, rol, activo: true });
-    navigate('/dashboard');
-  }
+	const {
+		register,
+		handleSubmit,
+		setError,
+		formState: { errors, isSubmitting },
+	} = useForm<LoginFormValues>({
+		resolver: zodResolver(loginSchema),
+		mode: 'onTouched',
+		defaultValues: { email: '', password: '' },
+	});
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-navy px-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm">
-        <img src={logo} alt="Superintendencia de Bancos" className="mx-auto mb-6 h-14 w-auto" />
-        <h1 className="mb-6 text-center text-lg font-semibold text-navy">Portal de Solicitudes Internas</h1>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-            Correo institucional
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-accent-orange"
-              placeholder="nombre@sb.gob.do"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-            Contraseña
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-accent-orange"
-              placeholder="••••••••"
-            />
-          </label>
+	// Con sesión ya activa (p. ej. token persistido revalidado), /login no tiene nada que hacer.
+	if (user) {
+		return <Navigate to='/dashboard' replace />;
+	}
 
-          <div className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-            Rol (demo)
-            <div className="flex gap-1.5">
-              {ROLES_DEMO.map((opcion) => (
-                <button
-                  key={opcion.rol}
-                  type="button"
-                  onClick={() => setRol(opcion.rol)}
-                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
-                    rol === opcion.rol
-                      ? 'border-accent-orange bg-accent-orange/10 text-accent-orange'
-                      : 'border-slate-300 text-slate-500 hover:border-accent-orange'
-                  }`}
-                >
-                  {opcion.etiqueta}
-                </button>
-              ))}
-            </div>
-          </div>
+	const volverA = searchParams.get('volverA');
+	const sesionExpirada = searchParams.get('sesionExpirada') === '1';
 
-          <button
-            type="submit"
-            className="mt-2 rounded-md bg-navy px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-orange"
-          >
-            Iniciar sesión
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+	async function onSubmit(valores: LoginFormValues) {
+		setErrorGeneral(null);
+
+		try {
+			const sesion = await iniciarSesion(valores);
+			guardarSesion(sesion);
+			navigate(volverA || '/dashboard', { replace: true });
+		} catch (error) {
+			if (error instanceof ErrorApi) {
+				if (error.errores) {
+					// 400 de validación: claves PascalCase del backend (Email, Password) → campos del form.
+					for (const [campo, mensajes] of Object.entries(
+						error.errores,
+					)) {
+						const nombreCampo =
+							campo.toLowerCase() as keyof LoginFormValues;
+						if (mensajes[0]) {
+							setError(nombreCampo, { message: mensajes[0] });
+						}
+					}
+					return;
+				}
+
+				setErrorGeneral(error.message);
+				return;
+			}
+
+			setErrorGeneral('No se pudo iniciar sesión. Intente de nuevo.');
+		}
+	}
+
+	return (
+		<div className='flex min-h-screen items-center justify-center bg-navy px-4'>
+			<div className='w-full max-w-sm rounded-xl bg-white p-8 shadow-sm'>
+				<img
+					src={logo}
+					alt='Superintendencia de Bancos'
+					className='mx-auto mb-6 h-14 w-auto'
+				/>
+				<h1 className='mb-6 text-center text-lg font-semibold text-navy'>
+					Portal de Solicitudes Internas
+				</h1>
+
+				{sesionExpirada && (
+					<p className='mb-4 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger'>
+						Su sesión expiró. Vuelva a iniciar sesión.
+					</p>
+				)}
+				{errorGeneral && (
+					<p className='mb-4 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger'>
+						{errorGeneral}
+					</p>
+				)}
+
+				<form
+					onSubmit={handleSubmit(onSubmit)}
+					className='flex flex-col gap-4'
+					noValidate>
+					<FormField
+						etiqueta='Correo institucional'
+						error={errors.email?.message}>
+						<input
+							type='email'
+							placeholder='nombre@sb.gob.do'
+							{...register('email')}
+						/>
+					</FormField>
+
+					<FormField
+						etiqueta='Contraseña'
+						error={errors.password?.message}>
+						<input
+							type='password'
+							placeholder='••••••••'
+							{...register('password')}
+						/>
+					</FormField>
+
+					<Button
+						type='submit'
+						cargando={isSubmitting}
+						className='mt-2'>
+						Iniciar sesión
+					</Button>
+				</form>
+			</div>
+		</div>
+	);
 }

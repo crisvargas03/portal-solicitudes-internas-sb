@@ -1,4 +1,5 @@
-import { AREAS, ESTADOS_SOLICITUD, PRIORIDADES, TIPOS_SOLICITUD, USUARIOS } from '../../mocks/catalogos';
+import { USUARIOS } from '../../mocks/catalogos';
+import { useAreas, useEstadosSolicitud, usePrioridades, useTiposSolicitud } from '../../hooks/queries/useCatalogos';
 import { FilterSelect } from '../ui/FilterSelect';
 import type { CampoFiltro, ValoresFiltrosSolicitudes } from './filtrosSolicitudes';
 
@@ -14,6 +15,13 @@ export function SolicitudFilters({ campos, valores, onChange }: SolicitudFilters
     onChange({ ...valores, [campo]: valor });
   }
 
+  const { data: areas = [] } = useAreas();
+  const { data: tiposSolicitud = [] } = useTiposSolicitud();
+  const { data: prioridades = [] } = usePrioridades();
+  const { data: estadosSolicitud = [] } = useEstadosSolicitud();
+
+  // Usuarios (solicitantes/analistas para los filtros de "Solicitante"/"Responsable") sigue
+  // en mocks: no hay un endpoint de catálogo de usuarios en el alcance de este cambio.
   const analistas = USUARIOS.filter((usuario) => usuario.rol === 'Analista');
   const solicitantes = USUARIOS.filter((usuario) => usuario.rol === 'Solicitante');
 
@@ -24,7 +32,7 @@ export function SolicitudFilters({ campos, valores, onChange }: SolicitudFilters
           etiqueta="Estado"
           valor={valores.estadoCodigo}
           onChange={(valor) => actualizar('estadoCodigo', valor)}
-          opciones={ESTADOS_SOLICITUD.map((estado) => ({ valor: estado.codigo, etiqueta: estado.nombre }))}
+          opciones={estadosSolicitud.map((estado) => ({ valor: estado.codigo, etiqueta: estado.nombre }))}
         />
       )}
       {campos.includes('prioridad') && (
@@ -32,7 +40,7 @@ export function SolicitudFilters({ campos, valores, onChange }: SolicitudFilters
           etiqueta="Prioridad"
           valor={valores.prioridadId}
           onChange={(valor) => actualizar('prioridadId', valor)}
-          opciones={PRIORIDADES.map((prioridad) => ({ valor: String(prioridad.id), etiqueta: prioridad.nombre }))}
+          opciones={prioridades.map((prioridad) => ({ valor: String(prioridad.id), etiqueta: prioridad.nombre }))}
         />
       )}
       {campos.includes('area') && (
@@ -40,7 +48,7 @@ export function SolicitudFilters({ campos, valores, onChange }: SolicitudFilters
           etiqueta="Área"
           valor={valores.areaId}
           onChange={(valor) => actualizar('areaId', valor)}
-          opciones={AREAS.map((area) => ({ valor: String(area.id), etiqueta: area.nombre }))}
+          opciones={areas.map((area) => ({ valor: String(area.id), etiqueta: area.nombre }))}
         />
       )}
       {campos.includes('tipo') && (
@@ -48,7 +56,7 @@ export function SolicitudFilters({ campos, valores, onChange }: SolicitudFilters
           etiqueta="Tipo"
           valor={valores.tipoSolicitudId}
           onChange={(valor) => actualizar('tipoSolicitudId', valor)}
-          opciones={TIPOS_SOLICITUD.map((tipo) => ({ valor: String(tipo.id), etiqueta: tipo.nombre }))}
+          opciones={tiposSolicitud.map((tipo) => ({ valor: String(tipo.id), etiqueta: tipo.nombre }))}
         />
       )}
       {campos.includes('solicitante') && (

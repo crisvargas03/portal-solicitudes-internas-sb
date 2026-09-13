@@ -5,5 +5,6 @@ export interface Usuario {
   nombre: string;
   email: string;
   rol: RolUsuario;
-  activo: boolean;
+  /** GET /api/auth/login y GET /api/auth/me no lo mandan; solo lo trae GET /api/usuarios. */
+  activo?: boolean;
 }

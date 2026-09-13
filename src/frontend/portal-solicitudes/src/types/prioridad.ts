@@ -1,7 +1,7 @@
+/** Forma exacta de GET /api/prioridades: la API ya filtra por activas, no manda el campo. */
 export interface Prioridad {
   id: number;
   nombre: string;
-  activo: boolean;
   /** Severidad relativa: a mayor numero, mayor urgencia. */
   nivel: number;
 }

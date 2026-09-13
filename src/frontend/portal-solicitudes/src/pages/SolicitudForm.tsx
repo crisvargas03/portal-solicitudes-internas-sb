@@ -1,8 +1,13 @@
 import { useParams } from 'react-router';
+import { useAreas, usePrioridades, useTiposSolicitud } from '../hooks/queries/useCatalogos';
 
 export function SolicitudForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
+
+  const { data: tiposSolicitud = [] } = useTiposSolicitud();
+  const { data: areas = [] } = useAreas();
+  const { data: prioridades = [] } = usePrioridades();
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,21 +37,33 @@ export function SolicitudForm() {
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Tipo de solicitud
           <select className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-accent-orange">
-            <option>Soporte técnico</option>
+            {tiposSolicitud.map((tipo) => (
+              <option key={tipo.id} value={tipo.id}>
+                {tipo.nombre}
+              </option>
+            ))}
           </select>
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Área
           <select className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-accent-orange">
-            <option>Tecnología</option>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.nombre}
+              </option>
+            ))}
           </select>
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Prioridad
           <select className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-accent-orange">
-            <option>Media</option>
+            {prioridades.map((prioridad) => (
+              <option key={prioridad.id} value={prioridad.id}>
+                {prioridad.nombre}
+              </option>
+            ))}
           </select>
         </label>
 
