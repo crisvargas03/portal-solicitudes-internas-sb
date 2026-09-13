@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Inbox } from 'lucide-react';
-import { useSolicitudesAsignadas, useSolicitudesDisponibles } from '../../../hooks/queries/useSolicitudes';
-import { buttonClasses } from '../../ui/buttonClasses';
+import { toast } from 'sonner';
+import { useCambiarAsignacion, useSolicitudesAsignadas, useSolicitudesDisponibles } from '../../../hooks/queries/useSolicitudes';
+import { useAuthStore } from '../../../store/authStore';
+import { ErrorApi } from '../../../lib/apiClient';
+import { Button } from '../../ui/Button';
 import { EmptyState } from '../../ui/EmptyState';
 import { Pagination } from '../../ui/Pagination';
 import { SegmentedControl } from '../../ui/SegmentedControl';
+import { CambiarEstadoModal } from '../CambiarEstadoModal';
 import { SolicitudQueueItem } from '../SolicitudQueueItem';
 import { SolicitudFilters } from '../SolicitudFilters';
 import { FILTROS_VACIOS, convertirAFiltrosSolicitudes } from '../filtrosSolicitudes';
@@ -24,6 +28,9 @@ export function AnalistaQueueView() {
   const [grupo, setGrupo] = useState<Grupo>('asignadas');
   const [valoresFiltros, setValoresFiltros] = useState<ValoresFiltrosSolicitudes>(FILTROS_VACIOS);
   const [pagina, setPagina] = useState(1);
+  const [solicitudEnCambioDeEstado, setSolicitudEnCambioDeEstado] = useState<number | null>(null);
+  const usuarioActualId = useAuthStore((state) => state.user?.id);
+  const cambiarAsignacion = useCambiarAsignacion();
 
   const filtros = useMemo(
     () => ({
@@ -50,6 +57,18 @@ export function AnalistaQueueView() {
   function manejarGrupoChange(nuevoGrupo: Grupo) {
     setGrupo(nuevoGrupo);
     setPagina(1);
+  }
+
+  /** Reclamar para sí mismo (ADR-0012): el id sale de la sesión, nunca de la fila. */
+  async function tomar(solicitudId: number) {
+    if (!usuarioActualId) return;
+
+    try {
+      await cambiarAsignacion.mutateAsync({ id: solicitudId, usuarioAsignadoId: usuarioActualId });
+      toast.success('Solicitud tomada');
+    } catch (error) {
+      toast.error(error instanceof ErrorApi ? error.message : 'No se pudo tomar la solicitud.');
+    }
   }
 
   return (
@@ -86,13 +105,23 @@ export function AnalistaQueueView() {
                 solicitud={solicitud}
                 accion={
                   grupo === 'asignadas' ? (
-                    <button type="button" className={buttonClasses('secundario', 'sm')}>
+                    <Button
+                      type="button"
+                      variante="secundario"
+                      tamano="sm"
+                      onClick={() => setSolicitudEnCambioDeEstado(solicitud.id)}
+                    >
                       Cambiar estado
-                    </button>
+                    </Button>
                   ) : (
-                    <button type="button" className={buttonClasses('primario', 'sm')}>
+                    <Button
+                      type="button"
+                      tamano="sm"
+                      cargando={cambiarAsignacion.isPending && cambiarAsignacion.variables?.id === solicitud.id}
+                      onClick={() => tomar(solicitud.id)}
+                    >
                       Tomar
-                    </button>
+                    </Button>
                   )
                 }
               />
@@ -102,6 +131,10 @@ export function AnalistaQueueView() {
             <Pagination pagina={paginaActual.pagina} totalPaginas={paginaActual.totalPaginas} onPaginaChange={setPagina} />
           )}
         </>
+      )}
+
+      {solicitudEnCambioDeEstado !== null && (
+        <CambiarEstadoModal solicitudId={solicitudEnCambioDeEstado} onCerrar={() => setSolicitudEnCambioDeEstado(null)} />
       )}
     </div>
   );

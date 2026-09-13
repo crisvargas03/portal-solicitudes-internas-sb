@@ -3,10 +3,13 @@ interface VencimientoIndicatorProps {
   estaVencida: boolean;
 }
 
+// fechaCompromiso ya llega como datetime ISO completo (p. ej. "2026-09-20T00:00:00"): concatenar
+// una hora fija encima producía un string invalido ("...T00:00:00T00:00:00") y por lo tanto NaN.
 function diferenciaEnDias(fechaCompromiso: string): number {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
-  const fecha = new Date(`${fechaCompromiso}T00:00:00`);
+  const fecha = new Date(fechaCompromiso);
+  fecha.setHours(0, 0, 0, 0);
   return Math.round((fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
 }
 

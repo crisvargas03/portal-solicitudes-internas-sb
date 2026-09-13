@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { RolUsuario } from '../../types';
 import {
   actualizarSolicitudCompleta,
   cambiarAsignacion,
+  cambiarEstado,
   crearAdjunto,
   crearComentario,
   crearSolicitud,
@@ -15,6 +15,7 @@ import {
 } from '../../services/solicitudService';
 import type {
   ActualizarSolicitudCompletaInput,
+  CambiarEstadoInput,
   CrearAdjuntoInput,
   CrearSolicitudInput,
   FiltrosSolicitudes,
@@ -47,11 +48,12 @@ export function useSolicitudesDisponibles(filtros: FiltrosSolicitudes = {}) {
   return useQuery({ queryKey: ['solicitudes', 'disponibles', filtros], queryFn: () => getDisponibles(filtros) });
 }
 
-export function useTransiciones(estadoActualCodigo: string | undefined, rol: RolUsuario | undefined) {
+/** Transiciones válidas para esta solicitud y el rol de quien pregunta (ver GET .../transiciones). */
+export function useTransiciones(id: number) {
   return useQuery({
-    queryKey: ['solicitudes', 'transiciones', estadoActualCodigo, rol],
-    queryFn: () => getTransiciones(estadoActualCodigo as string, rol as RolUsuario),
-    enabled: Boolean(estadoActualCodigo) && Boolean(rol),
+    queryKey: ['solicitudes', id, 'transiciones'],
+    queryFn: () => getTransiciones(id),
+    enabled: Number.isFinite(id),
   });
 }
 
@@ -81,6 +83,20 @@ export function useCambiarAsignacion() {
   });
 }
 
+/** PATCH /api/solicitudes/{id}/estado: transiciones validadas en el servidor contra TransicionPermitida. */
+export function useCambiarEstado() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, datos }: { id: number; datos: CambiarEstadoInput }) => cambiarEstado(id, datos),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', id, 'transiciones'] });
+      queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 /** Alta de Solicitante/Analista (ver ADR-0025 para la evidencia opcional encadenada). */
 export function useCrearSolicitud() {
   const queryClient = useQueryClient();
@@ -93,11 +109,12 @@ export function useCrearSolicitud() {
   });
 }
 
-/** Comentario público en el detalle de una solicitud (ver ADR-0023). */
+/** Comentario en el detalle de una solicitud, público o interno según el rol (ver ADR-0023). */
 export function useCrearComentario() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, texto }: { id: number; texto: string }) => crearComentario(id, texto),
+    mutationFn: ({ id, texto, esInterno }: { id: number; texto: string; esInterno: boolean }) =>
+      crearComentario(id, texto, esInterno),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
     },

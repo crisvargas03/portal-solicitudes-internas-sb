@@ -2,12 +2,10 @@ import type {
   AdjuntoDetalle,
   ComentarioDetalle,
   PaginaResultado,
-  RolUsuario,
   Solicitud,
   SolicitudDetalle,
   TransicionDisponible,
 } from '../types';
-import { obtenerTransicionesDisponibles } from '../mocks/transiciones';
 import { aQueryString, get, patch, post, put } from '../lib/apiClient';
 
 /**
@@ -70,12 +68,22 @@ export async function getDisponibles(filtros: FiltrosSolicitudes = {}): Promise<
 }
 
 /**
- * Transiciones válidas para el estado actual y el rol dado — ya filtradas, nunca una lista libre.
- * `estadoActualCodigo` lo trae quien llama (el detalle real ya cargado, ver getSolicitudById):
- * conectar el endpoint real GET /api/solicitudes/{id}/transiciones queda fuera de este cambio.
+ * GET /api/solicitudes/{id}/transiciones: transiciones válidas para el estado actual de la
+ * solicitud y el rol de quien pregunta — ya filtradas en el servidor (ver ADR-0005), nunca una
+ * lista libre que el cliente deba recortar.
  */
-export async function getTransiciones(estadoActualCodigo: string, rol: RolUsuario): Promise<TransicionDisponible[]> {
-  return obtenerTransicionesDisponibles(estadoActualCodigo, rol);
+export async function getTransiciones(id: number): Promise<TransicionDisponible[]> {
+  return get<TransicionDisponible[]>(`/solicitudes/${id}/transiciones`);
+}
+
+export interface CambiarEstadoInput {
+  estadoDestinoId: number;
+  comentario?: string;
+}
+
+/** PATCH /api/solicitudes/{id}/estado: el comentario es obligatorio o no según la transición elegida. */
+export async function cambiarEstado(id: number, datos: CambiarEstadoInput): Promise<Solicitud> {
+  return patch<Solicitud>(`/solicitudes/${id}/estado`, datos);
 }
 
 export interface ActualizarSolicitudCompletaInput {
@@ -114,14 +122,12 @@ export async function crearSolicitud(datos: CrearSolicitudInput): Promise<Solici
 }
 
 /**
- * POST /api/solicitudes/{id}/comentarios. `esInterno` siempre viaja en `false`: el formulario
- * de comentarios se comparte entre roles (ver SolicitudDetail.tsx) y ninguno de ellos tiene hoy
- * un control para marcar un comentario como interno — el servidor lo forzaría de todas formas
- * si el rol es Solicitante (ver ADR-0023), pero para Admin/Analista esto significa que sus
- * comentarios desde esta pantalla también son siempre públicos hasta que se agregue ese control.
+ * POST /api/solicitudes/{id}/comentarios. `esInterno` lo decide quien llama (ver ADR-0023):
+ * el servidor igual lo fuerza a `false` si el rol es Solicitante, así que el checkbox correspondiente
+ * ni siquiera se renderiza para ese rol (ver SolicitudDetail.tsx) — esto es solo coherencia de cliente.
  */
-export async function crearComentario(id: number, texto: string): Promise<ComentarioDetalle> {
-  return post<ComentarioDetalle>(`/solicitudes/${id}/comentarios`, { texto, esInterno: false });
+export async function crearComentario(id: number, texto: string, esInterno: boolean): Promise<ComentarioDetalle> {
+  return post<ComentarioDetalle>(`/solicitudes/${id}/comentarios`, { texto, esInterno });
 }
 
 export interface CrearAdjuntoInput {

@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { ArrowLeft, FileSearch, Paperclip, Pencil, Send } from 'lucide-react';
+import { ArrowLeft, FileSearch, Paperclip, Pencil, RefreshCw, Send } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
+import { CambiarEstadoModal } from '../components/solicitudes/CambiarEstadoModal';
 import { PriorityBadge } from '../components/solicitudes/PriorityBadge';
 import { StatusBadge } from '../components/solicitudes/StatusBadge';
 import { VencimientoIndicator } from '../components/solicitudes/VencimientoIndicator';
@@ -14,7 +15,13 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { FormField } from '../components/ui/FormField';
 import { inputClasses } from '../components/ui/inputClasses';
 import { useAnalistas } from '../hooks/queries/useUsuarios';
-import { useCambiarAsignacion, useCrearAdjunto, useCrearComentario, useSolicitud } from '../hooks/queries/useSolicitudes';
+import {
+  useCambiarAsignacion,
+  useCrearAdjunto,
+  useCrearComentario,
+  useSolicitud,
+  useTransiciones,
+} from '../hooks/queries/useSolicitudes';
 import { useRolActual } from '../hooks/useRolActual';
 import { ErrorApi } from '../lib/apiClient';
 import { adjuntoSchema, type AdjuntoFormValues } from '../schemas/solicitudSchema';
@@ -24,12 +31,14 @@ import type { AdjuntoDetalle, ComentarioDetalle } from '../types';
 export function SolicitudDetail() {
   const { id } = useParams();
   const idNumerico = Number(id);
-  const { esAdministrador } = useRolActual();
+  const { esAdministrador, esAnalista } = useRolActual();
   const { data: solicitud, isLoading, isError } = useSolicitud(idNumerico);
   const { data: analistas = [] } = useAnalistas();
+  const { data: transiciones = [] } = useTransiciones(idNumerico);
   const cambiarAsignacion = useCambiarAsignacion();
   const [analistaSeleccionado, setAnalistaSeleccionado] = useState('');
   const [errorAsignacion, setErrorAsignacion] = useState<string | null>(null);
+  const [modalEstadoAbierto, setModalEstadoAbierto] = useState(false);
 
   async function asignar() {
     setErrorAsignacion(null);
@@ -69,12 +78,19 @@ export function SolicitudDetail() {
           <ArrowLeft size={16} />
           Volver a solicitudes
         </Link>
-        {esAdministrador && (
-          <Link to={`/solicitudes/${id}/editar`} className="flex items-center gap-1.5 text-sm text-accent-orange hover:underline">
-            <Pencil size={14} />
-            Editar solicitud
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {esAdministrador && (
+            <Link to={`/solicitudes/${id}/editar`} className="flex items-center gap-1.5 text-sm text-accent-orange hover:underline">
+              <Pencil size={14} />
+              Editar solicitud
+            </Link>
+          )}
+          {transiciones.length > 0 && (
+            <Button type="button" variante="secundario" tamano="sm" icono={RefreshCw} onClick={() => setModalEstadoAbierto(true)}>
+              Cambiar estado
+            </Button>
+          )}
+        </div>
       </div>
 
       <div>
@@ -152,9 +168,17 @@ export function SolicitudDetail() {
         </ul>
       </section>
 
-      <ComentariosSection solicitudId={idNumerico} comentarios={solicitud.comentarios} />
+      <ComentariosSection
+        solicitudId={idNumerico}
+        comentarios={solicitud.comentarios}
+        puedeComentarInterno={esAdministrador || esAnalista}
+      />
 
       <AdjuntosSection solicitudId={idNumerico} adjuntos={solicitud.adjuntos} />
+
+      {modalEstadoAbierto && (
+        <CambiarEstadoModal solicitudId={idNumerico} onCerrar={() => setModalEstadoAbierto(false)} />
+      )}
     </div>
   );
 }
@@ -171,11 +195,12 @@ function Field({ label, value }: { label: string; value: string }) {
 interface ComentariosSectionProps {
   solicitudId: number;
   comentarios: ComentarioDetalle[];
+  /** Admin/Analista pueden marcar un comentario como interno (ver ADR-0023); Solicitante nunca
+   * ve ese control, ni siquiera deshabilitado — tampoco recibe comentarios internos ajenos. */
+  puedeComentarInterno: boolean;
 }
 
-/** Solo Admin/Analista pueden recibir comentarios `esInterno` — un Solicitante nunca los ve
- * en la respuesta del servidor (ver ADR-0023), así que no hace falta filtrar aquí. */
-function ComentariosSection({ solicitudId, comentarios }: ComentariosSectionProps) {
+function ComentariosSection({ solicitudId, comentarios, puedeComentarInterno }: ComentariosSectionProps) {
   const crearComentario = useCrearComentario();
   const [errorComentario, setErrorComentario] = useState<string | null>(null);
 
@@ -187,14 +212,18 @@ function ComentariosSection({ solicitudId, comentarios }: ComentariosSectionProp
   } = useForm<ComentarioFormValues>({
     resolver: zodResolver(comentarioSchema),
     mode: 'onTouched',
-    defaultValues: { texto: '' },
+    defaultValues: { texto: '', esInterno: false },
   });
 
   async function onSubmit(valores: ComentarioFormValues) {
     setErrorComentario(null);
     try {
-      await crearComentario.mutateAsync({ id: solicitudId, texto: valores.texto });
-      reset({ texto: '' });
+      await crearComentario.mutateAsync({
+        id: solicitudId,
+        texto: valores.texto,
+        esInterno: puedeComentarInterno && valores.esInterno,
+      });
+      reset({ texto: '', esInterno: false });
       toast.success('Comentario agregado');
     } catch (error) {
       const mensaje = error instanceof ErrorApi ? error.message : 'No se pudo agregar el comentario.';
@@ -212,7 +241,12 @@ function ComentariosSection({ solicitudId, comentarios }: ComentariosSectionProp
             <li key={comentario.id} className="rounded-md border border-slate-200 px-4 py-3 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-slate-700">{comentario.texto}</p>
-                {comentario.esInterno && <Badge tono="advertencia">Interno</Badge>}
+                {puedeComentarInterno &&
+                  (comentario.esInterno ? (
+                    <Badge tono="neutral">Interno</Badge>
+                  ) : (
+                    <Badge tono="navy">Público</Badge>
+                  ))}
               </div>
               <p className="mt-1 text-xs text-slate-500">
                 {comentario.usuario.nombre} · {new Date(comentario.fecha).toLocaleString()}
@@ -227,6 +261,13 @@ function ComentariosSection({ solicitudId, comentarios }: ComentariosSectionProp
           <FormField etiqueta="Agregar comentario" error={errors.texto?.message}>
             <textarea rows={3} placeholder="Escriba un comentario…" {...register('texto')} />
           </FormField>
+          {puedeComentarInterno && (
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" {...register('esInterno')} />
+              Comentario interno
+              <span className="text-xs text-slate-400">(no visible para el solicitante)</span>
+            </label>
+          )}
           <Button type="submit" tamano="sm" icono={Send} cargando={isSubmitting} className="w-fit">
             Comentar
           </Button>
