@@ -1,3 +1,4 @@
+import { Toaster } from 'sonner';
 import { RouterProvider } from 'react-router';
 import { useRenovacionSesion } from './hooks/useRenovacionSesion';
 import { useRevalidarSesion } from './hooks/useRevalidarSesion';
@@ -8,5 +9,10 @@ export function App() {
   useRevalidarSesion();
   useRenovacionSesion();
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <Toaster richColors position="top-right" />
+      <RouterProvider router={router} />
+    </>
+  );
 }

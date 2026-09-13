@@ -1,13 +1,23 @@
-import type { ResumenDashboard, RolUsuario, Solicitud, TransicionDisponible } from '../types';
+import type {
+  AdjuntoDetalle,
+  ComentarioDetalle,
+  ResumenDashboard,
+  RolUsuario,
+  Solicitud,
+  SolicitudDetalle,
+  TransicionDisponible,
+} from '../types';
 import { construirResumenDashboard } from '../mocks/dashboard';
 import { MOCK_SOLICITUDES } from '../mocks/solicitudes';
 import { obtenerTransicionesDisponibles } from '../mocks/transiciones';
-import { patch, put } from '../lib/apiClient';
+import { get, patch, post, put } from '../lib/apiClient';
 
-// Todo lo de este archivo opera sobre MOCK_SOLICITUDES. Cuando se conecte la API real,
-// solo este archivo cambia — el resto de la app consume los hooks de useSolicitudes.ts.
-// Excepcion: las dos funciones al final ya llaman a la API real, porque son mutaciones
-// nuevas de Administrador (edicion completa y asignacion) sin equivalente en el mock.
+// Todo lo de este archivo (salvo el detalle y las funciones al final) opera sobre
+// MOCK_SOLICITUDES. Cuando se conecte la API real para lista/dashboard, solo este archivo
+// cambia — el resto de la app consume los hooks de useSolicitudes.ts.
+// getSolicitudById, crearSolicitud, crearComentario, crearAdjunto, actualizarSolicitudCompleta
+// y cambiarAsignacion ya llaman a la API real: el detalle y sus mutaciones no tienen
+// equivalente razonable en el mock (comentarios/adjuntos con autor y fecha reales).
 
 export interface FiltrosSolicitudes {
   estadoCodigo?: string;
@@ -40,8 +50,9 @@ export async function getSolicitudes(filtros: FiltrosSolicitudes = {}): Promise<
   return aplicarFiltros(MOCK_SOLICITUDES, filtros);
 }
 
-export async function getSolicitudById(id: number): Promise<Solicitud | undefined> {
-  return MOCK_SOLICITUDES.find((solicitud) => solicitud.id === id);
+/** GET /api/solicitudes/{id}: detalle real, con historial, comentarios y adjuntos ya filtrados por rol. */
+export async function getSolicitudById(id: number): Promise<SolicitudDetalle> {
+  return get<SolicitudDetalle>(`/solicitudes/${id}`);
 }
 
 /** Vista Solicitante: ADR-0012 — solo sus propias solicitudes. */
@@ -62,9 +73,13 @@ export async function getDisponibles(filtros: FiltrosSolicitudes = {}): Promise<
   );
 }
 
-/** Transiciones válidas para el estado actual y el rol dado — ya filtradas, nunca una lista libre. */
+/**
+ * Transiciones válidas para el estado actual y el rol dado — ya filtradas, nunca una lista libre.
+ * Sigue operando sobre MOCK_SOLICITUDES (no sobre getSolicitudById, que ya es la API real):
+ * conectar el endpoint real GET /api/solicitudes/{id}/transiciones queda fuera de este cambio.
+ */
 export async function getTransiciones(id: number, rol: RolUsuario): Promise<TransicionDisponible[]> {
-  const solicitud = await getSolicitudById(id);
+  const solicitud = MOCK_SOLICITUDES.find((solicitud) => solicitud.id === id);
   if (!solicitud?.estado) return [];
   return obtenerTransicionesDisponibles(solicitud.estado.codigo, rol);
 }
@@ -93,4 +108,38 @@ export async function actualizarSolicitudCompleta(id: number, datos: ActualizarS
 /** PATCH /api/solicitudes/{id}/asignacion: usuarioAsignadoId nulo desasigna (ver ADR-0012). */
 export async function cambiarAsignacion(id: number, usuarioAsignadoId: number | null): Promise<Solicitud> {
   return patch<Solicitud>(`/solicitudes/${id}/asignacion`, { usuarioAsignadoId });
+}
+
+export interface CrearSolicitudInput {
+  titulo: string;
+  descripcion: string;
+  tipoSolicitudId: number;
+  prioridadId: number;
+  areaId: number;
+}
+
+/** POST /api/solicitudes: el solicitante sale del token, no se envía en el cuerpo. */
+export async function crearSolicitud(datos: CrearSolicitudInput): Promise<Solicitud> {
+  return post<Solicitud>('/solicitudes', datos);
+}
+
+/**
+ * POST /api/solicitudes/{id}/comentarios. `esInterno` siempre viaja en `false`: el formulario
+ * de comentarios se comparte entre roles (ver SolicitudDetail.tsx) y ninguno de ellos tiene hoy
+ * un control para marcar un comentario como interno — el servidor lo forzaría de todas formas
+ * si el rol es Solicitante (ver ADR-0023), pero para Admin/Analista esto significa que sus
+ * comentarios desde esta pantalla también son siempre públicos hasta que se agregue ese control.
+ */
+export async function crearComentario(id: number, texto: string): Promise<ComentarioDetalle> {
+  return post<ComentarioDetalle>(`/solicitudes/${id}/comentarios`, { texto, esInterno: false });
+}
+
+export interface CrearAdjuntoInput {
+  descripcion: string;
+  url: string;
+}
+
+/** POST /api/solicitudes/{id}/adjuntos: referencia de texto/URL, sin archivos (ver ADR-0006). */
+export async function crearAdjunto(id: number, datos: CrearAdjuntoInput): Promise<AdjuntoDetalle> {
+  return post<AdjuntoDetalle>(`/solicitudes/${id}/adjuntos`, datos);
 }

@@ -10,6 +10,7 @@ export * from './paginacion';
 export * from './prioridad';
 export * from './rolUsuario';
 export * from './solicitud';
+export * from './solicitudDetalle';
 export * from './tipoSolicitud';
 export * from './transicion';
 export * from './usuario';

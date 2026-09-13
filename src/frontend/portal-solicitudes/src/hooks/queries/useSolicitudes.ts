@@ -3,6 +3,9 @@ import type { RolUsuario } from '../../types';
 import {
   actualizarSolicitudCompleta,
   cambiarAsignacion,
+  crearAdjunto,
+  crearComentario,
+  crearSolicitud,
   getAsignadas,
   getDisponibles,
   getMisSolicitudes,
@@ -11,7 +14,12 @@ import {
   getSolicitudes,
   getTransiciones,
 } from '../../services/solicitudService';
-import type { ActualizarSolicitudCompletaInput, FiltrosSolicitudes } from '../../services/solicitudService';
+import type {
+  ActualizarSolicitudCompletaInput,
+  CrearAdjuntoInput,
+  CrearSolicitudInput,
+  FiltrosSolicitudes,
+} from '../../services/solicitudService';
 
 export function useSolicitudes(filtros: FiltrosSolicitudes = {}) {
   return useQuery({ queryKey: ['solicitudes', filtros], queryFn: () => getSolicitudes(filtros) });
@@ -81,6 +89,39 @@ export function useCambiarAsignacion() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
       queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+    },
+  });
+}
+
+/** Alta de Solicitante/Analista (ver ADR-0025 para la evidencia opcional encadenada). */
+export function useCrearSolicitud() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: CrearSolicitudInput) => crearSolicitud(datos),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+    },
+  });
+}
+
+/** Comentario público en el detalle de una solicitud (ver ADR-0023). */
+export function useCrearComentario() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, texto }: { id: number; texto: string }) => crearComentario(id, texto),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
+    },
+  });
+}
+
+/** Referencia de evidencia (texto/URL) agregada desde el detalle de una solicitud (ver ADR-0006). */
+export function useCrearAdjunto() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, datos }: { id: number; datos: CrearAdjuntoInput }) => crearAdjunto(id, datos),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', id] });
     },
   });
 }
