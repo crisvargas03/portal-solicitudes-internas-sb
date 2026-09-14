@@ -32,6 +32,7 @@ coverage/
 ## Secrets / environment
 *.env
 .env.*
+!**/.env.example
 appsettings.*.local.json
 appsettings.Local.json
 secrets.json
