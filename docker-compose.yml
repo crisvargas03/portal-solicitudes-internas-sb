@@ -45,9 +45,12 @@ services:
             Cors__OrigenesPermitidos__1: http://localhost:3000
         ports:
             - '5008:8080'
+        volumes:
+            - api-datos:/app/Data
         depends_on:
             mssql:
                 condition: service_healthy
 
 volumes:
     mssql-datos:
+    api-datos:
