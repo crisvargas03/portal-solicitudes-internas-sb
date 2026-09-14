@@ -1,10 +1,10 @@
 using LiteBus.Queries.Abstractions;
 using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
+using SB.PortalSolicitudes.Application.Common;
 using SB.PortalSolicitudes.Application.Common.Resultados;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Dtos;
 using SB.PortalSolicitudes.Domain.Entities;
-using SB.PortalSolicitudes.Domain.Enums;
 
 namespace SB.PortalSolicitudes.Application.Features.Solicitudes.Queries.ObtenerTransicionesDisponibles;
 
@@ -23,9 +23,15 @@ public class ObtenerTransicionesDisponiblesQueryHandler
     public async Task<Resultado<IReadOnlyList<TransicionDisponibleDto>>> HandleAsync(
         ObtenerTransicionesDisponiblesQuery query, CancellationToken cancellationToken = default)
     {
+        Resultado<AlcanceSolicitudes> alcanceResultado = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        if (alcanceResultado.EsFallido)
+        {
+            return Resultado.Fallido<IReadOnlyList<TransicionDisponibleDto>>(alcanceResultado.Error);
+        }
+
         Solicitud? solicitud = await _unitOfWork.Solicitudes.ObtenerParaCambioDeEstadoAsync(query.SolicitudId, cancellationToken);
 
-        if (solicitud is null || EsSolicitudDeOtro(solicitud))
+        if (solicitud is null || !alcanceResultado.Valor.Incluye(solicitud))
         {
             return Resultado.Fallido<IReadOnlyList<TransicionDisponibleDto>>(
                 Error.NoEncontrado("Solicitud.NoEncontrada", "La solicitud no existe."));
@@ -45,7 +51,4 @@ public class ObtenerTransicionesDisponiblesQueryHandler
 
         return disponibles;
     }
-
-    private bool EsSolicitudDeOtro(Solicitud solicitud) =>
-        _usuarioActual.Rol == RolUsuario.Solicitante && solicitud.UsuarioSolicitanteId != _usuarioActual.Id;
 }

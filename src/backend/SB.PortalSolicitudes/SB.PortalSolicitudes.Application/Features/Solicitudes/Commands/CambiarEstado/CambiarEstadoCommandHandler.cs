@@ -3,6 +3,7 @@ using SB.PortalSolicitudes.Application.Abstractions;
 using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Application.Abstractions.Notificaciones;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
+using SB.PortalSolicitudes.Application.Common;
 using SB.PortalSolicitudes.Application.Common.Resultados;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Dtos;
 using SB.PortalSolicitudes.Domain.Entities;
@@ -43,9 +44,17 @@ public class CambiarEstadoCommandHandler : ICommandHandler<CambiarEstadoCommand,
                 Error.NoAutorizado("Auth.NoAutenticado", "No hay una sesion activa."));
         }
 
+        Resultado<AlcanceSolicitudes> alcanceResultado = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        if (alcanceResultado.EsFallido)
+        {
+            return Resultado.Fallido<SolicitudResumenDto>(alcanceResultado.Error);
+        }
+
         Solicitud? solicitud = await _unitOfWork.Solicitudes.ObtenerParaCambioDeEstadoAsync(command.Id, cancellationToken);
 
-        if (solicitud is null)
+        // El rol autorizado por TransicionPermitidaRol no basta: la solicitud tambien debe estar
+        // dentro de su alcance, o un Solicitante podria cerrar la solicitud de otro (ADR-0012).
+        if (solicitud is null || !alcanceResultado.Valor.Incluye(solicitud))
         {
             return Resultado.Fallido<SolicitudResumenDto>(
                 Error.NoEncontrado("Solicitud.NoEncontrada", "La solicitud no existe."));

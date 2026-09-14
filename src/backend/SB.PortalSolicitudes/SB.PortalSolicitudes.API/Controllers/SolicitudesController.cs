@@ -53,8 +53,8 @@ public class SolicitudesController : ControllerBase
 
     /// <summary>
     /// Detalle completo, con historial, comentarios y adjuntos. Un Solicitante nunca recibe los
-    /// comentarios marcados <c>esInterno</c> (se filtran en el servidor, ver ADR-0023); pedir la
-    /// solicitud de otro Solicitante devuelve 404, no 403 (ver ADR-0012).
+    /// comentarios marcados <c>esInterno</c> (se filtran en el servidor, ver ADR-0023); pedir una
+    /// solicitud fuera del alcance del rol devuelve 404, no 403 (ver ADR-0012, amendada).
     /// </summary>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(RespuestaApi<SolicitudDetalleDto>), StatusCodes.Status200OK)]

@@ -2,10 +2,10 @@ using LiteBus.Commands.Abstractions;
 using SB.PortalSolicitudes.Application.Abstractions;
 using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
+using SB.PortalSolicitudes.Application.Common;
 using SB.PortalSolicitudes.Application.Common.Resultados;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Dtos;
 using SB.PortalSolicitudes.Domain.Entities;
-using SB.PortalSolicitudes.Domain.Enums;
 
 namespace SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CrearAdjunto;
 
@@ -31,12 +31,16 @@ public class CrearAdjuntoCommandHandler : ICommandHandler<CrearAdjuntoCommand, R
             return Resultado.Fallido<AdjuntoDto>(Error.NoAutorizado("Auth.NoAutenticado", "No hay una sesion activa."));
         }
 
+        Resultado<AlcanceSolicitudes> alcanceResultado = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        if (alcanceResultado.EsFallido)
+        {
+            return Resultado.Fallido<AdjuntoDto>(alcanceResultado.Error);
+        }
+
         Solicitud? solicitud = await _unitOfWork.Solicitudes.ObtenerParaCambioDeEstadoAsync(
             command.SolicitudId, cancellationToken);
 
-        bool esSolicitante = _usuarioActual.Rol == RolUsuario.Solicitante;
-
-        if (solicitud is null || (esSolicitante && solicitud.UsuarioSolicitanteId != _usuarioActual.Id))
+        if (solicitud is null || !alcanceResultado.Valor.Incluye(solicitud))
         {
             return Resultado.Fallido<AdjuntoDto>(Error.NoEncontrado("Solicitud.NoEncontrada", "La solicitud no existe."));
         }

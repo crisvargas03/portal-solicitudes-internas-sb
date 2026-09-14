@@ -1,6 +1,7 @@
 using LiteBus.Commands.Abstractions;
 using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
+using SB.PortalSolicitudes.Application.Common;
 using SB.PortalSolicitudes.Application.Common.Resultados;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Dtos;
 using SB.PortalSolicitudes.Domain.Entities;
@@ -22,9 +23,17 @@ public class ActualizarSolicitudCommandHandler : ICommandHandler<ActualizarSolic
     public async Task<Resultado<SolicitudResumenDto>> HandleAsync(
         ActualizarSolicitudCommand command, CancellationToken cancellationToken = default)
     {
+        Resultado<AlcanceSolicitudes> alcanceResultado = AlcanceSolicitudesFactory.Calcular(_usuarioActual);
+        if (alcanceResultado.EsFallido)
+        {
+            return Resultado.Fallido<SolicitudResumenDto>(alcanceResultado.Error);
+        }
+
         Solicitud? solicitud = await _unitOfWork.Solicitudes.ObtenerParaCambioDeEstadoAsync(command.Id, cancellationToken);
 
-        if (solicitud is null)
+        // Fuera del alcance: 404 (ADR-0012). Dentro del alcance pero sin permiso de edicion
+        // (un Analista sobre su cola): 403, mas abajo.
+        if (solicitud is null || !alcanceResultado.Valor.Incluye(solicitud))
         {
             return Resultado.Fallido<SolicitudResumenDto>(
                 Error.NoEncontrado("Solicitud.NoEncontrada", "La solicitud no existe."));

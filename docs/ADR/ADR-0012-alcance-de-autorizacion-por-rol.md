@@ -1,6 +1,6 @@
 # ADR-0012: Alcance de autorización por rol más allá de las transiciones
 
-**Estado:** Aceptada
+**Estado:** Aceptada (amendada 2026-09-14: el alcance aplica también al detalle y a las acciones por `Id` — ver nota en "Decisión")
 **Fecha:** 2026-09-10
 
 ## Contexto
@@ -20,6 +20,8 @@
 El detalle de una solicitud ajena a un Solicitante devuelve **404**, no 403: no debe poder distinguir "no existe" de "no es mía", lo que filtraría el rango de códigos en uso.
 
 **Edición parcial** (`PATCH /api/solicitudes/{id}`): el propio Solicitante o un Administrador, y solo mientras la solicitud sigue en `REGISTRADA` — una vez que entra a análisis, el contenido se congela y cualquier cambio pasa a ser un comentario de seguimiento, no una edición.
+
+> **Amendado 2026-09-14:** el alcance de la tabla anterior no es solo de listado y dashboard: aplica a **toda operación sobre una solicitud por su `Id`** — detalle, transiciones disponibles, cambio de estado, comentarios, adjuntos y edición parcial. La regla vive en un único lugar, `AlcanceSolicitudes.Incluye(solicitud)`, espejo en memoria del filtro de consulta del repositorio. Fuera del alcance, la respuesta es **404** para todos los roles, no solo para Solicitante. Motivo: antes, el detalle y las acciones solo recortaban al Solicitante (y el cambio de estado, a nadie), así que un Solicitante podía cerrar la solicitud resuelta de otro — `TransicionPermitidaRol` autoriza el *rol*, no la *pertenencia* — y un Analista podía leer (comentarios internos incluidos), comentar o mover solicitudes asignadas a otro Analista con solo conocer el `Id`, aunque su listado no las mostrara. Consecuencia asumida: si un Administrador reasigna una solicitud, el Analista anterior deja de verla, incluso desde un enlace de notificación antigua. `PATCH /api/solicitudes/{id}/asignacion` conserva su regla propia (abajo).
 
 **Asignación** (`PATCH /api/solicitudes/{id}/asignacion`): Administrador asigna o reasigna sin restricción. Un Analista solo puede **reclamar para sí mismo** una solicitud que todavía no tiene responsable; reasignar una ya asignada, o asignarla a un tercero, es exclusivo de Administrador. Esta regla no se deriva de la tabla anterior por sí sola — es la consecuencia necesaria de que un Analista vea solicitudes sin asignar pero no pueda actuar sobre ellas de otro modo, y se decide aquí explícitamente.
 
