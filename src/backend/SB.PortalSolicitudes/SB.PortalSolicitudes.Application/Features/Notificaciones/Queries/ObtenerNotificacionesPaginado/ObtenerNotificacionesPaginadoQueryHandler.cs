@@ -23,6 +23,14 @@ public class ObtenerNotificacionesPaginadoQueryHandler
     public async Task<Resultado<ResultadoPaginado<NotificacionDto>>> HandleAsync(
         ObtenerNotificacionesPaginadoQuery query, CancellationToken cancellationToken = default)
     {
+        // Falla cerrado (mismo criterio que ADR-0029): un UsuarioDestinoId nulo el repositorio
+        // lo interpreta como "sin filtro" y devolveria las notificaciones de todos los usuarios.
+        if (_usuarioActual.Id is null)
+        {
+            return Resultado.Fallido<ResultadoPaginado<NotificacionDto>>(
+                Error.NoAutorizado("Auth.NoAutenticado", "No hay una sesion activa."));
+        }
+
         FiltroNotificaciones filtro = new()
         {
             UsuarioDestinoId = _usuarioActual.Id,

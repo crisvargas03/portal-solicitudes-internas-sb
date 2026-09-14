@@ -71,13 +71,13 @@ Dependency rule: `Api → Application → Domain`, with `Infrastructure` impleme
 
 Beyond the documented minimum, the model adds:
 
-| Entity                 | Fields                                                       | Relationships                | Notes                                                                                        |
-| ---------------------- | ------------------------------------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------- |
-| `Prioridad`            | Id, name, `Nivel`, active                                    | Requests                     | Catalog table rather than an enum — see ADR-0004                                              |
-| `EstadoSolicitud`      | Id, `Codigo`, name, `Orden`, `EsFinal`, active               | Requests, history            | Catalog table rather than an enum — see ADR-0004. `Codigo` is the stable key, never the Id    |
-| `TransicionPermitida`  | Id, origin state, target state, `RequiereComentario`, active | Two states, allowed roles    | The state machine as data — see ADR-0005                                                      |
-| `TransicionPermitidaRol` | Id, transition, role                                       | `TransicionPermitida`        | Roles authorized to run a transition; a child table, not a `[Flags]` enum                     |
-| `Adjunto`              | Id, description, url, date                                   | Request, user                | Text reference / evidence URL only, no file storage — see ADR-0006                            |
+| Entity                   | Fields                                                       | Relationships             | Notes                                                                                      |
+| ------------------------ | ------------------------------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------ |
+| `Prioridad`              | Id, name, `Nivel`, active                                    | Requests                  | Catalog table rather than an enum — see ADR-0004                                           |
+| `EstadoSolicitud`        | Id, `Codigo`, name, `Orden`, `EsFinal`, active               | Requests, history         | Catalog table rather than an enum — see ADR-0004. `Codigo` is the stable key, never the Id |
+| `TransicionPermitida`    | Id, origin state, target state, `RequiereComentario`, active | Two states, allowed roles | The state machine as data — see ADR-0005                                                   |
+| `TransicionPermitidaRol` | Id, transition, role                                         | `TransicionPermitida`     | Roles authorized to run a transition; a child table, not a `[Flags]` enum                  |
+| `Adjunto`                | Id, description, url, date                                   | Request, user             | Text reference / evidence URL only, no file storage — see ADR-0006                         |
 
 `Usuario` additionally carries `PasswordHash` (simplified custom model, not ASP.NET Identity — see ADR-0007). Per ADR-0001, `Solicitud` has **no** resolution-comment field.
 
