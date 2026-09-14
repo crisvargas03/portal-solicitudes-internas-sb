@@ -9,6 +9,7 @@ using SB.PortalSolicitudes.Application.Abstractions.Persistence;
 using SB.PortalSolicitudes.Infraestructure.Autenticacion;
 using SB.PortalSolicitudes.Infraestructure.Notificaciones;
 using SB.PortalSolicitudes.Infraestructure.Persistence;
+using SB.PortalSolicitudes.Infraestructure.Persistence.Archivos;
 using SB.PortalSolicitudes.Infraestructure.Persistence.Repositories;
 
 namespace SB.PortalSolicitudes.Infraestructure;
@@ -67,6 +68,13 @@ public static class InfraestructureExtension
 
         servicios.AddScoped<INotificationService, NotificationService>();
         servicios.AddScoped<INotificationChannel, CanalNotificacionBaseDeDatos>();
+
+        // Singleton (no Scoped como el resto de repositorios): el SemaphoreSlim que
+        // serializa las escrituras al archivo (ver ADR-0034) debe ser unico para todo el
+        // proceso, no uno nuevo por peticion.
+        servicios.Configure<OpcionesArchivoEntidadesGubernamentales>(
+            configuracion.GetSection(OpcionesArchivoEntidadesGubernamentales.SECCION));
+        servicios.AddSingleton<IEntidadGubernamentalRepository, EntidadGubernamentalFileRepository>();
 
         return servicios;
     }
