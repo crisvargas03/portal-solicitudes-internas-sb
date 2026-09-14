@@ -13,6 +13,8 @@ const OPCIONES = [
 ];
 
 // Estados no tiene sección aquí: es un flujo fijo de 6 estados sin CRUD (ver ADR-0020).
+// Entidades gubernamentales tampoco: tiene su propia página en el sidebar (ver
+// pages/AdminEntidadesGubernamentales.tsx), no un tab aquí, por su volumen (~180 registros).
 export function AdminCatalogos() {
   const [catalogo, setCatalogo] = useState<CatalogoActivo>('areas');
 

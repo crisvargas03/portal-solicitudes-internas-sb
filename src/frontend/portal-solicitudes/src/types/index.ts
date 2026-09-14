@@ -3,6 +3,7 @@ export * from './area';
 export * from './codigosEstadoSolicitud';
 export * from './comentario';
 export * from './dashboard';
+export * from './entidadGubernamental';
 export * from './estadoSolicitud';
 export * from './historialEstado';
 export * from './notificacion';

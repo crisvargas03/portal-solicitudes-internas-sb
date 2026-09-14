@@ -1,4 +1,4 @@
-import { ClipboardList, FilePlus2, FolderCog, LayoutDashboard, Users, type LucideIcon } from 'lucide-react';
+import { ClipboardList, FilePlus2, FolderCog, Landmark, LayoutDashboard, Users, type LucideIcon } from 'lucide-react';
 import type { RolUsuario } from '../types';
 
 export interface NavItemConfig {
@@ -14,5 +14,11 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { to: '/solicitudes', label: 'Solicitudes', icon: ClipboardList },
   { to: '/solicitudes/nueva', label: 'Nueva solicitud', icon: FilePlus2 },
   { to: '/catalogos', label: 'Catálogos', icon: FolderCog, rolesPermitidos: ['Administrador'] },
+  {
+    to: '/entidades-gubernamentales',
+    label: 'Entidades gubernamentales',
+    icon: Landmark,
+    rolesPermitidos: ['Administrador'],
+  },
   { to: '/usuarios', label: 'Usuarios', icon: Users, rolesPermitidos: ['Administrador'] },
 ];

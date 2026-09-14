@@ -3,6 +3,7 @@ import { RutaPorRol } from '../components/common/RutaPorRol';
 import { RutaProtegida } from '../components/common/RutaProtegida';
 import { AppLayout } from '../components/layout/AppLayout';
 import { AdminCatalogos } from '../pages/AdminCatalogos';
+import { AdminEntidadesGubernamentales } from '../pages/AdminEntidadesGubernamentales';
 import { AdminUsuarios } from '../pages/AdminUsuarios';
 import { Dashboard } from '../pages/Dashboard';
 import { Login } from '../pages/Login';
@@ -52,6 +53,14 @@ export const router = createBrowserRouter([
 				element: (
 					<RutaPorRol rolesPermitidos={['Administrador']}>
 						<AdminUsuarios />
+					</RutaPorRol>
+				),
+			},
+			{
+				path: 'entidades-gubernamentales',
+				element: (
+					<RutaPorRol rolesPermitidos={['Administrador']}>
+						<AdminEntidadesGubernamentales />
 					</RutaPorRol>
 				),
 			},
