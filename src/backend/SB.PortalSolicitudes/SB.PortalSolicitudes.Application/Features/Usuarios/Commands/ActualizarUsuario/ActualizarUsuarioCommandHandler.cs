@@ -1,18 +1,22 @@
 using LiteBus.Commands.Abstractions;
+using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
 using SB.PortalSolicitudes.Application.Common.Dtos;
 using SB.PortalSolicitudes.Application.Common.Resultados;
 using SB.PortalSolicitudes.Domain.Entities;
+using SB.PortalSolicitudes.Domain.Enums;
 
 namespace SB.PortalSolicitudes.Application.Features.Usuarios.Commands.ActualizarUsuario;
 
 public class ActualizarUsuarioCommandHandler : ICommandHandler<ActualizarUsuarioCommand, Resultado<UsuarioResumenDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IUsuarioActual _usuarioActual;
 
-    public ActualizarUsuarioCommandHandler(IUnitOfWork unitOfWork)
+    public ActualizarUsuarioCommandHandler(IUnitOfWork unitOfWork, IUsuarioActual usuarioActual)
     {
         _unitOfWork = unitOfWork;
+        _usuarioActual = usuarioActual;
     }
 
     public async Task<Resultado<UsuarioResumenDto>> HandleAsync(
@@ -25,6 +29,16 @@ public class ActualizarUsuarioCommandHandler : ICommandHandler<ActualizarUsuario
             return Resultado.Fallido<UsuarioResumenDto>(Error.NoEncontrado("Usuario.NoEncontrado", "El usuario no existe."));
         }
 
+        // Un Administrador no puede modificar a otro Administrador (ver ADR-0021); si mismo
+        // queda exento para poder seguir editando sus propios datos.
+        bool esOtroAdministrador = usuario.Rol == RolUsuario.Administrador && usuario.Id != _usuarioActual.Id;
+
+        if (esOtroAdministrador)
+        {
+            return Resultado.Fallido<UsuarioResumenDto>(
+                Error.Prohibido("Usuario.NoPuedeModificarAdmin", "No puede modificar a otro Administrador."));
+        }
+
         usuario.Nombre = command.Nombre ?? usuario.Nombre;
         usuario.Rol = command.Rol ?? usuario.Rol;
         usuario.Activo = command.Activo ?? usuario.Activo;
@@ -32,6 +46,6 @@ public class ActualizarUsuarioCommandHandler : ICommandHandler<ActualizarUsuario
         _unitOfWork.Usuarios.Actualizar(usuario);
         await _unitOfWork.GuardarCambiosAsync(cancellationToken);
 
-        return new UsuarioResumenDto(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString());
+        return new UsuarioResumenDto(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString(), usuario.Activo);
     }
 }

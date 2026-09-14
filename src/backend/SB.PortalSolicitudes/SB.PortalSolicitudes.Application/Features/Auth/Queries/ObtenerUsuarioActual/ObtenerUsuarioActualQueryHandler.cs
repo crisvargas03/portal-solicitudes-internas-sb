@@ -36,6 +36,6 @@ public class ObtenerUsuarioActualQueryHandler
                 Error.NoEncontrado("Usuario.NoEncontrado", "El usuario autenticado ya no existe."));
         }
 
-        return new UsuarioResumenDto(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString());
+        return new UsuarioResumenDto(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString(), usuario.Activo);
     }
 }

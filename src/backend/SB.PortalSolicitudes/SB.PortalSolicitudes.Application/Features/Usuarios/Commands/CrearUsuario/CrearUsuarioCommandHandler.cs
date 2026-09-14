@@ -41,6 +41,6 @@ public class CrearUsuarioCommandHandler : ICommandHandler<CrearUsuarioCommand, R
         await _unitOfWork.Usuarios.AgregarAsync(usuario, cancellationToken);
         await _unitOfWork.GuardarCambiosAsync(cancellationToken);
 
-        return new UsuarioResumenDto(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString());
+        return new UsuarioResumenDto(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString(), usuario.Activo);
     }
 }

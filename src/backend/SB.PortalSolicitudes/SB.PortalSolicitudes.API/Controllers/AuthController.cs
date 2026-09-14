@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using SB.PortalSolicitudes.API.Common;
 using SB.PortalSolicitudes.Application.Features.Auth.Commands.IniciarSesion;
 using SB.PortalSolicitudes.Application.Features.Auth.Commands.RegistrarUsuario;
+using SB.PortalSolicitudes.Application.Features.Auth.Commands.RenovarSesion;
 using SB.PortalSolicitudes.Application.Features.Auth.Queries.ObtenerUsuarioActual;
 
 namespace SB.PortalSolicitudes.API.Controllers;
@@ -47,6 +48,16 @@ public class AuthController : ControllerBase
     {
         var resultado = await _queryMediator.QueryAsync(
             new ObtenerUsuarioActualQuery(), cancellationToken: cancellationToken);
+
+        return resultado.AResultadoHttp();
+    }
+
+    /// <summary>Re-emision deslizante (ver ADR-0019): exige un token todavia valido, no es un refresh token.</summary>
+    [HttpPost("refresh")]
+    [Authorize]
+    public async Task<IActionResult> Renovar(CancellationToken cancellationToken)
+    {
+        var resultado = await _commandMediator.SendAsync(new RenovarSesionCommand(), cancellationToken: cancellationToken);
 
         return resultado.AResultadoHttp();
     }

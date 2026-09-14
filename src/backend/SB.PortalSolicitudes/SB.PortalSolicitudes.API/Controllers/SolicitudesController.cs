@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SB.PortalSolicitudes.API.Common;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.ActualizarSolicitud;
+using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.AdminActualizarSolicitud;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CambiarAsignacion;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CambiarEstado;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CrearAdjunto;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CrearComentario;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Commands.CrearSolicitud;
+using SB.PortalSolicitudes.Application.Features.Solicitudes.Dtos;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Queries.ObtenerDetalleSolicitud;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Queries.ObtenerSolicitudesPaginado;
 using SB.PortalSolicitudes.Application.Features.Solicitudes.Queries.ObtenerTransicionesDisponibles;
@@ -38,7 +40,10 @@ public class SolicitudesController : ControllerBase
         return resultado.AResultadoHttp();
     }
 
+    /// <summary>Crea una solicitud a nombre del usuario autenticado (el solicitante sale del token).</summary>
     [HttpPost]
+    [ProducesResponseType(typeof(RespuestaApi<SolicitudResumenDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(RespuestaApi), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Crear([FromBody] CrearSolicitudCommand comando, CancellationToken cancellationToken)
     {
         var resultado = await _commandMediator.SendAsync(comando, cancellationToken: cancellationToken);
@@ -46,7 +51,14 @@ public class SolicitudesController : ControllerBase
         return resultado.AResultadoHttp();
     }
 
+    /// <summary>
+    /// Detalle completo, con historial, comentarios y adjuntos. Un Solicitante nunca recibe los
+    /// comentarios marcados <c>esInterno</c> (se filtran en el servidor, ver ADR-0023); pedir la
+    /// solicitud de otro Solicitante devuelve 404, no 403 (ver ADR-0012).
+    /// </summary>
     [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(RespuestaApi<SolicitudDetalleDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(RespuestaApi), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ObtenerDetalle(int id, CancellationToken cancellationToken)
     {
         var resultado = await _queryMediator.QueryAsync(
@@ -62,6 +74,19 @@ public class SolicitudesController : ControllerBase
         ActualizarSolicitudCommand comando = new(
             id, cuerpo.Titulo, cuerpo.Descripcion, cuerpo.TipoSolicitudId, cuerpo.PrioridadId, cuerpo.AreaId,
             cuerpo.FechaCompromiso);
+
+        var resultado = await _commandMediator.SendAsync(comando, cancellationToken: cancellationToken);
+
+        return resultado.AResultadoHttp();
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> ActualizarCompleta(
+        int id, [FromBody] ActualizarSolicitudCompletaRequest cuerpo, CancellationToken cancellationToken)
+    {
+        AdminActualizarSolicitudCommand comando = new(
+            id, cuerpo.Titulo, cuerpo.Descripcion, cuerpo.TipoSolicitudId, cuerpo.PrioridadId, cuerpo.AreaId);
 
         var resultado = await _commandMediator.SendAsync(comando, cancellationToken: cancellationToken);
 
@@ -100,7 +125,14 @@ public class SolicitudesController : ControllerBase
         return resultado.AResultadoHttp();
     }
 
+    /// <summary>
+    /// Agrega un comentario. Un Solicitante no puede crear comentarios internos: si envia
+    /// <c>esInterno: true</c> igual se guarda como publico (ver ADR-0023) en vez de rechazarse.
+    /// </summary>
     [HttpPost("{id:int}/comentarios")]
+    [ProducesResponseType(typeof(RespuestaApi<ComentarioDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(RespuestaApi), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(RespuestaApi), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CrearComentario(
         int id, [FromBody] CrearComentarioRequest cuerpo, CancellationToken cancellationToken)
     {
@@ -111,7 +143,14 @@ public class SolicitudesController : ControllerBase
         return resultado.AResultadoHttp();
     }
 
+    /// <summary>
+    /// Agrega una referencia de evidencia (texto y/o URL): no hay almacenamiento de archivos
+    /// fisicos, solo se guarda la direccion (ver ADR-0006).
+    /// </summary>
     [HttpPost("{id:int}/adjuntos")]
+    [ProducesResponseType(typeof(RespuestaApi<AdjuntoDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(RespuestaApi), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(RespuestaApi), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CrearAdjunto(
         int id, [FromBody] CrearAdjuntoRequest cuerpo, CancellationToken cancellationToken)
     {
@@ -131,6 +170,14 @@ public sealed record ActualizarSolicitudRequest(
     int? PrioridadId,
     int? AreaId,
     DateTime? FechaCompromiso);
+
+/// <summary>Cuerpo de <c>PUT /api/solicitudes/{id}</c>: edicion completa, exclusiva de Administrador (ver ADR-0020).</summary>
+public sealed record ActualizarSolicitudCompletaRequest(
+    string Titulo,
+    string Descripcion,
+    int TipoSolicitudId,
+    int PrioridadId,
+    int AreaId);
 
 public sealed record CambiarEstadoRequest(int EstadoDestinoId, string? Comentario);
 

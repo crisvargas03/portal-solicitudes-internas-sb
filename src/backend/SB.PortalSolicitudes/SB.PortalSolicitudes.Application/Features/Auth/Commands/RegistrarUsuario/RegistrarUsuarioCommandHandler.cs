@@ -56,7 +56,7 @@ public class RegistrarUsuarioCommandHandler : ICommandHandler<RegistrarUsuarioCo
 
         (string token, DateTime expiraEn) = _proveedorTokens.GenerarToken(usuario);
 
-        UsuarioResumenDto usuarioDto = new(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString());
+        UsuarioResumenDto usuarioDto = new(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString(), usuario.Activo);
 
         return new SesionDto(token, expiraEn, usuarioDto);
     }

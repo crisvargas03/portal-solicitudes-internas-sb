@@ -38,4 +38,18 @@ public class FiltroSolicitudes : ParametrosPaginacion
 
     /// <summary>Fecha de referencia para evaluar <see cref="SoloVencidas"/>. La decide quien llama, no el repositorio.</summary>
     public DateTime? FechaReferencia { get; set; }
+
+    /// <summary>
+    /// Corte aditivo por responsable, encima del alcance por rol (ADR-0012, ADR-0026): solo lo
+    /// asignado a este usuario. Se combina con <see cref="SoloSinAsignar"/> como OR, nunca las dos
+    /// a la vez en la practica (<see cref="FiltroAsignacion"/> nunca las activa juntas).
+    /// </summary>
+    public int? AsignadasAUsuarioId { get; set; }
+
+    /// <summary>Corte aditivo: solo solicitudes sin responsable todavia (ADR-0026).</summary>
+    public bool SoloSinAsignar { get; set; }
+
+    public OrdenSolicitudes Orden { get; set; } = OrdenSolicitudes.FechaCreacion;
+
+    public DireccionOrden Direccion { get; set; } = DireccionOrden.Desc;
 }

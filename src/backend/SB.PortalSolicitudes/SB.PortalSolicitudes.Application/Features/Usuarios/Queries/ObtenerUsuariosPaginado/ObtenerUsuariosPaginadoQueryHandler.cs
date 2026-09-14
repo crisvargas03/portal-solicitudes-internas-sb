@@ -41,5 +41,5 @@ public class ObtenerUsuariosPaginadoQueryHandler
     }
 
     private static UsuarioResumenDto AUsuarioResumenDto(Usuario usuario) =>
-        new(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString());
+        new(usuario.Id, usuario.Nombre, usuario.Email, usuario.Rol.ToString(), usuario.Activo);
 }

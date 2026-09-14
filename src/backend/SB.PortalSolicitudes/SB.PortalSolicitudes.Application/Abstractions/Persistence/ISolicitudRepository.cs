@@ -24,15 +24,16 @@ public interface ISolicitudRepository : IRepositorioBase<Solicitud>
 
     /// <summary>
     /// Conteo agrupado por <c>EstadoSolicitud.Codigo</c>, para el dashboard.
-    /// <paramref name="alcance"/> aplica el recorte por rol (ADR-0012), para que el
-    /// dashboard nunca muestre mas de lo que el listado dejaria ver al mismo usuario.
+    /// <paramref name="criterio"/> aplica el recorte por rol mas el corte aditivo por
+    /// asignacion (ADR-0012, ADR-0027), para que el dashboard nunca muestre mas de lo que el
+    /// listado dejaria ver al mismo usuario con el mismo filtro.
     /// </summary>
     Task<IReadOnlyDictionary<string, int>> ContarPorCodigoDeEstadoAsync(
-        AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
+        CriterioDashboard criterio, CancellationToken cancellationToken = default);
 
     /// <summary>Conteo agrupado por <c>PrioridadId</c>, para el dashboard.</summary>
     Task<IReadOnlyDictionary<int, int>> ContarPorPrioridadAsync(
-        AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
+        CriterioDashboard criterio, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// <paramref name="fechaReferencia"/> la decide quien llama: el repositorio no lee la
@@ -40,10 +41,18 @@ public interface ISolicitudRepository : IRepositorioBase<Solicitud>
     /// solicitud cerrada con fecha de compromiso pasada no esta vencida.
     /// </summary>
     Task<int> ContarVencidasAsync(
-        DateTime fechaReferencia, AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
+        DateTime fechaReferencia, CriterioDashboard criterio, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Solicitud>> ObtenerRecientesAsync(
-        int cantidad, AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
+        int cantidad, CriterioDashboard criterio, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cuenta lo sin responsable dentro del alcance del usuario (indicador del pool
+    /// disponible, ADR-0027) — a diferencia de los demas conteos del dashboard, no toma
+    /// <see cref="CriterioDashboard"/> porque no tiene sentido combinarlo con un corte de
+    /// asignacion adicional.
+    /// </summary>
+    Task<int> ContarSinAsignarAsync(AlcanceSolicitudes alcance, CancellationToken cancellationToken = default);
 
     /// <summary>Soporte para la generacion del codigo legible (ver docs/open-decisions.md #2). Solo informa, no decide.</summary>
     Task<int> ContarPorAnioDeCreacionAsync(int anio, CancellationToken cancellationToken = default);
