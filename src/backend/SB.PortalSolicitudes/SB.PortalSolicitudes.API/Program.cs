@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -26,7 +27,15 @@ try
     builder.Host.UseSerilog((contexto, configuracion) => configuracion.ReadFrom.Configuration(contexto.Configuration));
 
     builder.Services.AddHttpContextAccessor();
-    builder.Services.AddControllers();
+
+    // JsonStringEnumConverter: los enums (RolUsuario, EstadoNotificacion, CanalNotificacion)
+    // viajan como su nombre ("Administrador") en vez de su valor entero subyacente, tanto en
+    // el cuerpo de la peticion/respuesta como en el esquema que genera Swagger — consistente
+    // con como ya se exponen manualmente en UsuarioResumenDto.Rol (ver ProveedorTokensJwt,
+    // que ya hace lo mismo a mano con el claim de rol del JWT).
+    builder.Services.AddControllers()
+        .AddJsonOptions(opciones => opciones.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
     builder.Services.AddEndpointsApiExplorer();
 
     // El [ApiController] responde 400 por su cuenta ante un fallo de model-binding (JSON
