@@ -40,6 +40,14 @@ public class AdminActualizarSolicitudCommandHandler
                 Error.NoEncontrado("Solicitud.NoEncontrada", "La solicitud no existe."));
         }
 
+        Error? errorReferencias = await ValidadorReferenciasSolicitud.ValidarAsync(
+            _unitOfWork, command.AreaId, command.TipoSolicitudId, command.PrioridadId, cancellationToken);
+
+        if (errorReferencias is not null)
+        {
+            return Resultado.Fallido<SolicitudResumenDto>(errorReferencias);
+        }
+
         solicitud.Titulo = command.Titulo;
         solicitud.Descripcion = command.Descripcion;
         solicitud.TipoSolicitudId = command.TipoSolicitudId;

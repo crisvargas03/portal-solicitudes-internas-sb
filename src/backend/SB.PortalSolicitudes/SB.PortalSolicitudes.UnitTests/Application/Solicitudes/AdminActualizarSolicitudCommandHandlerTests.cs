@@ -32,6 +32,7 @@ public class AdminActualizarSolicitudCommandHandlerTests
         _unitOfWork.Solicitudes.Returns(_solicitudes);
         _unitOfWork.Comentarios.Returns(_comentarios);
         _proveedorFechaHora.Ahora.Returns(DatosPrueba.AHORA);
+        DatosPrueba.PrepararCatalogosActivos(_unitOfWork);
     }
 
     [Fact]
@@ -85,6 +86,20 @@ public class AdminActualizarSolicitudCommandHandlerTests
         Resultado<SolicitudResumenDto> resultado = await Ejecutar(DatosPrueba.Administrador());
 
         Assert.Equal(TipoError.NoEncontrado, resultado.Error.Tipo);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().IniciarTransaccionAsync(default);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PrioridadInactiva_DevuelveValidacionSinAbrirTransaccion()
+    {
+        PrepararSolicitud(DatosPrueba.EnProgreso());
+        _unitOfWork.Prioridades.ObtenerPorIdAsync(ID_CATALOGO_NUEVO, Arg.Any<CancellationToken>())
+            .Returns(new Prioridad { Id = ID_CATALOGO_NUEVO, Nombre = "Prioridad", Activo = false });
+
+        Resultado<SolicitudResumenDto> resultado = await Ejecutar(DatosPrueba.Administrador());
+
+        Assert.Equal(TipoError.Validacion, resultado.Error.Tipo);
+        Assert.Equal("Solicitud.PrioridadInvalida", resultado.Error.Codigo);
         await _unitOfWork.DidNotReceiveWithAnyArgs().IniciarTransaccionAsync(default);
     }
 

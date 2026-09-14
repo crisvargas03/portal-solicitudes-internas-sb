@@ -1,4 +1,5 @@
 using NSubstitute;
+using SB.PortalSolicitudes.Application.Abstractions;
 using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
 using SB.PortalSolicitudes.Application.Common.Resultados;
@@ -20,10 +21,13 @@ public class ActualizarSolicitudCommandHandlerTests
 
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISolicitudRepository _solicitudes = Substitute.For<ISolicitudRepository>();
+    private readonly IProveedorFechaHora _proveedorFechaHora = Substitute.For<IProveedorFechaHora>();
 
     public ActualizarSolicitudCommandHandlerTests()
     {
         _unitOfWork.Solicitudes.Returns(_solicitudes);
+        _proveedorFechaHora.Ahora.Returns(DatosPrueba.AHORA);
+        DatosPrueba.PrepararCatalogosActivos(_unitOfWork);
     }
 
     [Fact]
@@ -127,9 +131,40 @@ public class ActualizarSolicitudCommandHandlerTests
     private static ActualizarSolicitudCommand ComandoConTitulo() =>
         new(DatosPrueba.ID_SOLICITUD, TITULO_NUEVO, null, null, null, null, null);
 
+    [Fact]
+    public async Task HandleAsync_AreaInexistente_DevuelveValidacionSinGuardar()
+    {
+        PrepararSolicitud(DatosPrueba.Registrada());
+        _unitOfWork.Areas.ObtenerPorIdAsync(DatosPrueba.ID_CATALOGO, Arg.Any<CancellationToken>())
+            .Returns((Area?)null);
+
+        Resultado<SolicitudResumenDto> resultado = await Ejecutar(
+            DatosPrueba.SolicitanteUno(),
+            new ActualizarSolicitudCommand(DatosPrueba.ID_SOLICITUD, null, null, null, null, DatosPrueba.ID_CATALOGO, null));
+
+        Assert.Equal(TipoError.Validacion, resultado.Error.Tipo);
+        Assert.Equal("Solicitud.AreaInvalida", resultado.Error.Codigo);
+        await AfirmarQueNoSeGuardo();
+    }
+
+    [Fact]
+    public async Task HandleAsync_FechaCompromisoEnElPasado_DevuelveValidacionSinGuardar()
+    {
+        PrepararSolicitud(DatosPrueba.Registrada());
+
+        Resultado<SolicitudResumenDto> resultado = await Ejecutar(
+            DatosPrueba.SolicitanteUno(),
+            new ActualizarSolicitudCommand(
+                DatosPrueba.ID_SOLICITUD, null, null, null, null, null, DatosPrueba.AHORA.Date.AddDays(-1)));
+
+        Assert.Equal(TipoError.Validacion, resultado.Error.Tipo);
+        Assert.Equal("Solicitud.FechaCompromisoInvalida", resultado.Error.Codigo);
+        await AfirmarQueNoSeGuardo();
+    }
+
     private Task<Resultado<SolicitudResumenDto>> Ejecutar(IUsuarioActual usuarioActual, ActualizarSolicitudCommand comando)
     {
-        ActualizarSolicitudCommandHandler handler = new(_unitOfWork, usuarioActual);
+        ActualizarSolicitudCommandHandler handler = new(_unitOfWork, usuarioActual, _proveedorFechaHora);
 
         return handler.HandleAsync(comando);
     }

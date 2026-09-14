@@ -40,6 +40,7 @@ public class CrearSolicitudCommandHandlerTests
         _unitOfWork.EstadosSolicitud.Returns(_estados);
         _unitOfWork.HistorialEstados.Returns(_historial);
         _proveedorFechaHora.Ahora.Returns(DatosPrueba.AHORA);
+        DatosPrueba.PrepararCatalogosActivos(_unitOfWork);
         _generadorCodigo.GenerarAsync(DatosPrueba.AHORA.Year, Arg.Any<CancellationToken>()).Returns(CODIGO_GENERADO);
 
         _estados.ObtenerPorCodigoAsync(CodigosEstadoSolicitud.REGISTRADA, Arg.Any<CancellationToken>())
@@ -137,11 +138,60 @@ public class CrearSolicitudCommandHandlerTests
         await _solicitudes.DidNotReceiveWithAnyArgs().AgregarAsync(default!, default);
     }
 
-    private Task<Resultado<SolicitudResumenDto>> Ejecutar(IUsuarioActual usuarioActual)
+    [Fact]
+    public async Task HandleAsync_AreaInexistente_DevuelveValidacionSinAbrirTransaccion()
+    {
+        _unitOfWork.Areas.ObtenerPorIdAsync(DatosPrueba.ID_CATALOGO, Arg.Any<CancellationToken>())
+            .Returns((Area?)null);
+
+        Resultado<SolicitudResumenDto> resultado = await Ejecutar(DatosPrueba.SolicitanteUno());
+
+        Assert.Equal(TipoError.Validacion, resultado.Error.Tipo);
+        Assert.Equal("Solicitud.AreaInvalida", resultado.Error.Codigo);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().IniciarTransaccionAsync(default);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TipoSolicitudInactivo_DevuelveValidacion()
+    {
+        _unitOfWork.TiposSolicitud.ObtenerPorIdAsync(DatosPrueba.ID_CATALOGO, Arg.Any<CancellationToken>())
+            .Returns(new TipoSolicitud { Id = DatosPrueba.ID_CATALOGO, Nombre = "Tipo", Activo = false });
+
+        Resultado<SolicitudResumenDto> resultado = await Ejecutar(DatosPrueba.SolicitanteUno());
+
+        Assert.Equal(TipoError.Validacion, resultado.Error.Tipo);
+        Assert.Equal("Solicitud.TipoSolicitudInvalido", resultado.Error.Codigo);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PrioridadInexistente_DevuelveValidacion()
+    {
+        _unitOfWork.Prioridades.ObtenerPorIdAsync(DatosPrueba.ID_CATALOGO, Arg.Any<CancellationToken>())
+            .Returns((Prioridad?)null);
+
+        Resultado<SolicitudResumenDto> resultado = await Ejecutar(DatosPrueba.SolicitanteUno());
+
+        Assert.Equal(TipoError.Validacion, resultado.Error.Tipo);
+        Assert.Equal("Solicitud.PrioridadInvalida", resultado.Error.Codigo);
+    }
+
+    [Fact]
+    public async Task HandleAsync_FechaCompromisoEnElPasado_DevuelveValidacionSinAbrirTransaccion()
+    {
+        CrearSolicitudCommand comando = COMANDO with { FechaCompromiso = DatosPrueba.AHORA.Date.AddDays(-1) };
+
+        Resultado<SolicitudResumenDto> resultado = await Ejecutar(DatosPrueba.SolicitanteUno(), comando);
+
+        Assert.Equal(TipoError.Validacion, resultado.Error.Tipo);
+        Assert.Equal("Solicitud.FechaCompromisoInvalida", resultado.Error.Codigo);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().IniciarTransaccionAsync(default);
+    }
+
+    private Task<Resultado<SolicitudResumenDto>> Ejecutar(IUsuarioActual usuarioActual, CrearSolicitudCommand? comando = null)
     {
         CrearSolicitudCommandHandler handler = new(
             _unitOfWork, usuarioActual, _proveedorFechaHora, _generadorCodigo, _notificationService);
 
-        return handler.HandleAsync(COMANDO);
+        return handler.HandleAsync(comando ?? COMANDO);
     }
 }

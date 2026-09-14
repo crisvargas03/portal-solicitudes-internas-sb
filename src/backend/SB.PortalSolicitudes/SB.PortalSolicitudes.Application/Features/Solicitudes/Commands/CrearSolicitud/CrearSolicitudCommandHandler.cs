@@ -50,6 +50,21 @@ public class CrearSolicitudCommandHandler : ICommandHandler<CrearSolicitudComman
         }
 
         DateTime ahora = _proveedorFechaHora.Ahora;
+
+        if (command.FechaCompromiso is not null && command.FechaCompromiso.Value.Date < ahora.Date)
+        {
+            return Resultado.Fallido<SolicitudResumenDto>(
+                Error.Validacion("Solicitud.FechaCompromisoInvalida", "La fecha compromiso no puede ser una fecha pasada."));
+        }
+
+        Error? errorReferencias = await ValidadorReferenciasSolicitud.ValidarAsync(
+            _unitOfWork, command.AreaId, command.TipoSolicitudId, command.PrioridadId, cancellationToken);
+
+        if (errorReferencias is not null)
+        {
+            return Resultado.Fallido<SolicitudResumenDto>(errorReferencias);
+        }
+
         int usuarioSolicitanteId = _usuarioActual.Id.Value;
 
         await _unitOfWork.IniciarTransaccionAsync(cancellationToken);

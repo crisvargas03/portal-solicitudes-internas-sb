@@ -1,4 +1,5 @@
 using LiteBus.Commands.Abstractions;
+using SB.PortalSolicitudes.Application.Abstractions;
 using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
 using SB.PortalSolicitudes.Application.Abstractions.Persistence;
 using SB.PortalSolicitudes.Application.Common;
@@ -13,11 +14,14 @@ public class ActualizarSolicitudCommandHandler : ICommandHandler<ActualizarSolic
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IUsuarioActual _usuarioActual;
+    private readonly IProveedorFechaHora _proveedorFechaHora;
 
-    public ActualizarSolicitudCommandHandler(IUnitOfWork unitOfWork, IUsuarioActual usuarioActual)
+    public ActualizarSolicitudCommandHandler(
+        IUnitOfWork unitOfWork, IUsuarioActual usuarioActual, IProveedorFechaHora proveedorFechaHora)
     {
         _unitOfWork = unitOfWork;
         _usuarioActual = usuarioActual;
+        _proveedorFechaHora = proveedorFechaHora;
     }
 
     public async Task<Resultado<SolicitudResumenDto>> HandleAsync(
@@ -55,11 +59,29 @@ public class ActualizarSolicitudCommandHandler : ICommandHandler<ActualizarSolic
                     "Solicitud.NoEditable", "Solo se puede editar una solicitud mientras esta en estado Registrada."));
         }
 
+        if (command.FechaCompromiso is not null && command.FechaCompromiso.Value.Date < _proveedorFechaHora.Ahora.Date)
+        {
+            return Resultado.Fallido<SolicitudResumenDto>(
+                Error.Validacion("Solicitud.FechaCompromisoInvalida", "La fecha compromiso no puede ser una fecha pasada."));
+        }
+
+        int areaId = command.AreaId ?? solicitud.AreaId;
+        int tipoSolicitudId = command.TipoSolicitudId ?? solicitud.TipoSolicitudId;
+        int prioridadId = command.PrioridadId ?? solicitud.PrioridadId;
+
+        Error? errorReferencias = await ValidadorReferenciasSolicitud.ValidarAsync(
+            _unitOfWork, areaId, tipoSolicitudId, prioridadId, cancellationToken);
+
+        if (errorReferencias is not null)
+        {
+            return Resultado.Fallido<SolicitudResumenDto>(errorReferencias);
+        }
+
         solicitud.Titulo = command.Titulo ?? solicitud.Titulo;
         solicitud.Descripcion = command.Descripcion ?? solicitud.Descripcion;
-        solicitud.TipoSolicitudId = command.TipoSolicitudId ?? solicitud.TipoSolicitudId;
-        solicitud.PrioridadId = command.PrioridadId ?? solicitud.PrioridadId;
-        solicitud.AreaId = command.AreaId ?? solicitud.AreaId;
+        solicitud.TipoSolicitudId = tipoSolicitudId;
+        solicitud.PrioridadId = prioridadId;
+        solicitud.AreaId = areaId;
         solicitud.FechaCompromiso = command.FechaCompromiso ?? solicitud.FechaCompromiso;
 
         _unitOfWork.Solicitudes.Actualizar(solicitud);

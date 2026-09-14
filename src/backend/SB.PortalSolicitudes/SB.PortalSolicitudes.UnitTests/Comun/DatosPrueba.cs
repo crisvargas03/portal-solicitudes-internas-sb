@@ -1,5 +1,6 @@
 using NSubstitute;
 using SB.PortalSolicitudes.Application.Abstractions.Autenticacion;
+using SB.PortalSolicitudes.Application.Abstractions.Persistence;
 using SB.PortalSolicitudes.Domain.Entities;
 using SB.PortalSolicitudes.Domain.Enums;
 
@@ -114,6 +115,30 @@ public static class DatosPrueba
             UsuarioAsignadoId = usuarioAsignadoId,
             UsuarioAsignado = usuarioAsignadoId is null ? null : Usuario(usuarioAsignadoId.Value, RolUsuario.Analista)
         };
+    }
+
+    /// <summary>
+    /// Hace que <c>Areas</c>, <c>TiposSolicitud</c> y <c>Prioridades</c> devuelvan, para
+    /// cualquier Id, un catalogo activo (ver <see cref="ValidadorReferenciasSolicitud"/>).
+    /// </summary>
+    public static void PrepararCatalogosActivos(IUnitOfWork unitOfWork)
+    {
+        IAreaRepository areas = Substitute.For<IAreaRepository>();
+        ITipoSolicitudRepository tipos = Substitute.For<ITipoSolicitudRepository>();
+        IPrioridadRepository prioridades = Substitute.For<IPrioridadRepository>();
+
+        areas.ObtenerPorIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(llamada => new Area { Id = llamada.Arg<int>(), Nombre = "Area", Activo = true });
+
+        tipos.ObtenerPorIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(llamada => new TipoSolicitud { Id = llamada.Arg<int>(), Nombre = "Tipo", Activo = true });
+
+        prioridades.ObtenerPorIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(llamada => new Prioridad { Id = llamada.Arg<int>(), Nombre = "Prioridad", Activo = true });
+
+        unitOfWork.Areas.Returns(areas);
+        unitOfWork.TiposSolicitud.Returns(tipos);
+        unitOfWork.Prioridades.Returns(prioridades);
     }
 
     public static TransicionPermitida Transicion(
