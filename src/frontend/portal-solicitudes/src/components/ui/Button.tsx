@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { buttonClasses } from './buttonClasses';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variante?: 'primario' | 'secundario' | 'fantasma';
+  variante?: 'primario' | 'secundario' | 'fantasma' | 'peligro';
   tamano?: 'sm' | 'md';
   icono?: LucideIcon;
   /** Deshabilita el botón y muestra un spinner en vez del ícono, para el pending de un submit. */

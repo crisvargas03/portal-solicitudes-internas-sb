@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pencil, Plus } from 'lucide-react';
 import { useActualizarArea, useAreasTodas, useCrearArea } from '../../hooks/queries/useCatalogosAdmin';
+import { useConfirm } from '../../hooks/useConfirm';
 import { areaSchema } from '../../schemas/areaSchema';
 import type { AreaFormValues } from '../../schemas/areaSchema';
 import { ErrorApi } from '../../lib/apiClient';
@@ -18,6 +19,7 @@ export function AreasAdminSection() {
   const { data: areas = [], isLoading } = useAreasTodas();
   const crear = useCrearArea();
   const actualizar = useActualizarArea();
+  const confirmar = useConfirm();
   const [editando, setEditando] = useState<AreaAdmin | null>(null);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
@@ -48,7 +50,22 @@ export function AreasAdminSection() {
   }
 
   async function alternarActivo(area: AreaAdmin) {
-    await actualizar.mutateAsync({ id: area.id, datos: { activo: !area.activo } });
+    setErrorGeneral(null);
+    try {
+      if (!area.activo) {
+        await actualizar.mutateAsync({ id: area.id, datos: { activo: true } });
+        return;
+      }
+      await confirmar({
+        titulo: 'Desactivar área',
+        mensaje: `¿Desactivar el área «${area.nombre}»? Dejará de aparecer al crear o editar solicitudes. Las solicitudes existentes no se verán afectadas.`,
+        variante: 'peligro',
+        textoConfirmar: 'Desactivar',
+        accion: () => actualizar.mutateAsync({ id: area.id, datos: { activo: false } }),
+      });
+    } catch (error) {
+      setErrorGeneral(error instanceof ErrorApi ? error.message : 'No se pudo actualizar el área.');
+    }
   }
 
   const columnas: Columna<AreaAdmin>[] = [

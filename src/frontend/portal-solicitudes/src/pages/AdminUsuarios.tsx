@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pencil, Plus } from 'lucide-react';
 import { useActualizarUsuario, useCrearUsuario, useUsuarios } from '../hooks/queries/useUsuarios';
+import { useConfirm } from '../hooks/useConfirm';
 import { ErrorApi } from '../lib/apiClient';
 import { crearUsuarioSchema, editarUsuarioSchema } from '../schemas/usuarioSchema';
 import type { CrearUsuarioFormValues, EditarUsuarioFormValues } from '../schemas/usuarioSchema';
@@ -30,6 +31,7 @@ export function AdminUsuarios() {
 
   const crear = useCrearUsuario();
   const actualizar = useActualizarUsuario();
+  const confirmar = useConfirm();
   const [editando, setEditando] = useState<UsuarioResumen | null>(null);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
@@ -64,8 +66,24 @@ export function AdminUsuarios() {
   async function onEditar(valores: EditarUsuarioFormValues) {
     if (!editando) return;
     setErrorGeneral(null);
+    const esUnoMismo = editando.id === usuarioActualId;
+    const cambiaRol = valores.rol !== editando.rol;
+    const guardar = () => actualizar.mutateAsync({ id: editando.id, datos: valores });
     try {
-      await actualizar.mutateAsync({ id: editando.id, datos: valores });
+      if (cambiaRol) {
+        const confirmado = await confirmar({
+          titulo: esUnoMismo ? 'Cambiar tu propio rol' : 'Cambiar rol',
+          mensaje: esUnoMismo
+            ? `¿Cambiar tu rol de ${editando.rol} a ${valores.rol}? Perderás de inmediato el acceso a lo que tu rol actual permite, y no podrás revertirlo tú mismo.`
+            : `¿Cambiar el rol de «${editando.nombre}» de ${editando.rol} a ${valores.rol}?`,
+          variante: 'peligro',
+          textoConfirmar: esUnoMismo ? 'Cambiar mi rol' : 'Cambiar rol',
+          accion: guardar,
+        });
+        if (!confirmado) return;
+      } else {
+        await guardar();
+      }
       setEditando(null);
     } catch (error) {
       setErrorGeneral(error instanceof ErrorApi ? error.message : 'No se pudo actualizar el usuario.');
@@ -74,8 +92,21 @@ export function AdminUsuarios() {
 
   async function alternarActivo(usuario: UsuarioResumen) {
     setErrorGeneral(null);
+    const esUnoMismo = usuario.id === usuarioActualId;
     try {
-      await actualizar.mutateAsync({ id: usuario.id, datos: { activo: !usuario.activo } });
+      if (!usuario.activo) {
+        await actualizar.mutateAsync({ id: usuario.id, datos: { activo: true } });
+        return;
+      }
+      await confirmar({
+        titulo: esUnoMismo ? 'Desactivar tu propia cuenta' : 'Desactivar usuario',
+        mensaje: esUnoMismo
+          ? 'Estás por desactivar tu propio usuario. Perderás el acceso al portal y no podrás volver a entrar ni deshacerlo tú mismo: otro Administrador tendrá que reactivarte.'
+          : `¿Desactivar a «${usuario.nombre}»? No podrá volver a iniciar sesión. Sus solicitudes y comentarios se conservan intactos.`,
+        variante: 'peligro',
+        textoConfirmar: esUnoMismo ? 'Desactivar mi cuenta' : 'Desactivar',
+        accion: () => actualizar.mutateAsync({ id: usuario.id, datos: { activo: false } }),
+      });
     } catch (error) {
       setErrorGeneral(
         error instanceof ErrorApi ? error.message : `No se pudo ${usuario.activo ? 'desactivar' : 'reactivar'} el usuario.`,

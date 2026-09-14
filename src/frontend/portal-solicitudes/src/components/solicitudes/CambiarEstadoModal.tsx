@@ -7,13 +7,19 @@ import { FormField } from '../ui/FormField';
 import { Modal } from '../ui/Modal';
 import { inputClasses } from '../ui/inputClasses';
 import { useCambiarEstado, useTransiciones } from '../../hooks/queries/useSolicitudes';
+import { useEstadosSolicitud } from '../../hooks/queries/useCatalogos';
+import { useConfirm } from '../../hooks/useConfirm';
 import { ErrorApi } from '../../lib/apiClient';
 import { cambiarEstadoSchema, type CambiarEstadoFormValues } from '../../schemas/cambiarEstadoSchema';
 import { CodigosEstadoSolicitud } from '../../types';
-import type { TransicionDisponible } from '../../types';
+import type { EstadoSolicitud, TransicionDisponible } from '../../types';
 
 interface CambiarEstadoModalProps {
   solicitudId: number;
+  codigoSolicitud: string;
+  /** Solo para distinguir "reabrir" (ver ADR-0033) — el resto de la lógica de transición sigue
+   * viniendo enteramente de GET .../transiciones, nunca de comparar el estado a mano. */
+  estadoActual: EstadoSolicitud;
   onCerrar: () => void;
 }
 
@@ -26,10 +32,16 @@ interface CambiarEstadoModalProps {
  * rol (ver ADR-0005) — nunca una lista libre de estados. El comentario se vuelve obligatorio
  * según `transicion.requiereComentario`, nunca comparando el destino contra CERRADA a mano: esa
  * restricción vive en la transicion EN_PROGRESO → RESUELTA (ver ADR-0001/0002).
+ *
+ * La confirmación de cierre/reapertura (ver ADR-0033) sí necesita distinguir un estado final,
+ * pero lo hace igual de forma dirigida por datos: cruza el destino contra `EstadoSolicitud.esFinal`
+ * del catálogo (ya cacheado, ver ADR-0018) en vez de comparar códigos a mano.
  */
-export function CambiarEstadoModal({ solicitudId, onCerrar }: CambiarEstadoModalProps) {
+export function CambiarEstadoModal({ solicitudId, codigoSolicitud, estadoActual, onCerrar }: CambiarEstadoModalProps) {
   const { data: transiciones = [], isLoading } = useTransiciones(solicitudId);
+  const { data: estados = [] } = useEstadosSolicitud();
   const cambiarEstado = useCambiarEstado();
+  const confirmar = useConfirm();
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [transicionSeleccionada, setTransicionSeleccionada] = useState<TransicionDisponible | undefined>(undefined);
 
@@ -54,11 +66,33 @@ export function CambiarEstadoModal({ solicitudId, onCerrar }: CambiarEstadoModal
 
   async function onSubmit(valores: CambiarEstadoFormValues) {
     setErrorEnvio(null);
-    try {
-      await cambiarEstado.mutateAsync({
+    const destino = estados.find((estado) => estado.id === valores.estadoDestinoId);
+    const accion = () =>
+      cambiarEstado.mutateAsync({
         id: solicitudId,
         datos: { estadoDestinoId: valores.estadoDestinoId, comentario: valores.comentario || undefined },
       });
+    try {
+      if (destino?.esFinal) {
+        const confirmado = await confirmar({
+          titulo: 'Cerrar solicitud',
+          mensaje: `¿Cerrar definitivamente ${codigoSolicitud}? Es el cierre final del ciclo: a partir de aquí solo un Administrador o un Analista puede reabrirla.`,
+          variante: 'peligro',
+          textoConfirmar: 'Cerrar solicitud',
+          accion,
+        });
+        if (!confirmado) return;
+      } else if (estadoActual.esFinal) {
+        const confirmado = await confirmar({
+          titulo: 'Reabrir solicitud',
+          mensaje: `¿Reabrir ${codigoSolicitud}? Volverá al circuito de trabajo y la reapertura quedará registrada en el historial.`,
+          textoConfirmar: 'Reabrir',
+          accion,
+        });
+        if (!confirmado) return;
+      } else {
+        await accion();
+      }
       toast.success('Estado actualizado');
       onCerrar();
     } catch (error) {

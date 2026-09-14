@@ -10,8 +10,9 @@ import { inputClasses } from '../ui/inputClasses';
 import { Modal } from '../ui/Modal';
 import { useAnalistas } from '../../hooks/queries/useUsuarios';
 import { useCambiarAsignacion } from '../../hooks/queries/useSolicitudes';
+import { useConfirm } from '../../hooks/useConfirm';
 import { ErrorApi } from '../../lib/apiClient';
-import type { SolicitudDetalle } from '../../types';
+import type { SolicitudDetalle, UsuarioResumen } from '../../types';
 
 interface SolicitudInfoPanelProps {
   solicitud: SolicitudDetalle;
@@ -58,7 +59,8 @@ export function SolicitudInfoPanel({ solicitud, puedeReasignar }: SolicitudInfoP
       {modalAsignarAbierto && (
         <AsignarModal
           solicitudId={solicitud.id}
-          asignadoActualId={solicitud.asignado?.id ?? null}
+          codigoSolicitud={solicitud.codigo}
+          asignadoActual={solicitud.asignado}
           onCerrar={() => setModalAsignarAbierto(false)}
         />
       )}
@@ -78,23 +80,47 @@ function CampoLateral({ etiqueta, children }: { etiqueta: string; children: Reac
 
 interface AsignarModalProps {
   solicitudId: number;
-  asignadoActualId: number | null;
+  codigoSolicitud: string;
+  asignadoActual: UsuarioResumen | null;
   onCerrar: () => void;
 }
 
-function AsignarModal({ solicitudId, asignadoActualId, onCerrar }: AsignarModalProps) {
+function AsignarModal({ solicitudId, codigoSolicitud, asignadoActual, onCerrar }: AsignarModalProps) {
   const { data: analistas = [] } = useAnalistas();
   const cambiarAsignacion = useCambiarAsignacion();
-  const [analistaSeleccionado, setAnalistaSeleccionado] = useState(asignadoActualId ? String(asignadoActualId) : '');
+  const confirmar = useConfirm();
+  const [analistaSeleccionado, setAnalistaSeleccionado] = useState(asignadoActual ? String(asignadoActual.id) : '');
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit() {
     setError(null);
+    const idSeleccionado = analistaSeleccionado ? Number(analistaSeleccionado) : null;
+    const sinCambios = idSeleccionado === (asignadoActual?.id ?? null);
+    const accion = () => cambiarAsignacion.mutateAsync({ id: solicitudId, usuarioAsignadoId: idSeleccionado });
     try {
-      await cambiarAsignacion.mutateAsync({
-        id: solicitudId,
-        usuarioAsignadoId: analistaSeleccionado ? Number(analistaSeleccionado) : null,
-      });
+      // Solo se confirma cuando la solicitud le quita el trabajo a alguien que ya la tenía
+      // (ver ADR-0033): la primera asignación desde "Sin asignar" no es destructiva.
+      if (sinCambios || !asignadoActual) {
+        await accion();
+      } else if (idSeleccionado === null) {
+        const confirmado = await confirmar({
+          titulo: 'Quitar responsable',
+          mensaje: `¿Quitar a «${asignadoActual.nombre}» como responsable de ${codigoSolicitud}? La solicitud quedará sin responsable y volverá a la lista de disponibles.`,
+          variante: 'peligro',
+          textoConfirmar: 'Quitar responsable',
+          accion,
+        });
+        if (!confirmado) return;
+      } else {
+        const nuevoNombre = analistas.find((analista) => analista.id === idSeleccionado)?.nombre ?? 'otro analista';
+        const confirmado = await confirmar({
+          titulo: 'Reasignar solicitud',
+          mensaje: `¿Pasar ${codigoSolicitud} de «${asignadoActual.nombre}» a «${nuevoNombre}»? Dejará de aparecer en la cola de ${asignadoActual.nombre}.`,
+          textoConfirmar: 'Reasignar',
+          accion,
+        });
+        if (!confirmado) return;
+      }
       toast.success('Responsable actualizado');
       onCerrar();
     } catch (err) {

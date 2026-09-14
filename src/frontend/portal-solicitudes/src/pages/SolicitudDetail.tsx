@@ -85,7 +85,14 @@ export function SolicitudDetail() {
         <HistorialTimeline historial={solicitud.historial} />
       </Card>
 
-      {modalEstadoAbierto && <CambiarEstadoModal solicitudId={idNumerico} onCerrar={() => setModalEstadoAbierto(false)} />}
+      {modalEstadoAbierto && (
+        <CambiarEstadoModal
+          solicitudId={idNumerico}
+          codigoSolicitud={solicitud.codigo}
+          estadoActual={solicitud.estado}
+          onCerrar={() => setModalEstadoAbierto(false)}
+        />
+      )}
     </div>
   );
 }

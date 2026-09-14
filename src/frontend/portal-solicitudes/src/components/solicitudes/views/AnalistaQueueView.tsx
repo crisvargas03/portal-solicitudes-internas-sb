@@ -13,6 +13,7 @@ import { SolicitudQueueItem } from '../SolicitudQueueItem';
 import { SolicitudFilters } from '../SolicitudFilters';
 import { FILTROS_VACIOS, convertirAFiltrosSolicitudes } from '../filtrosSolicitudes';
 import type { ValoresFiltrosSolicitudes } from '../filtrosSolicitudes';
+import type { Solicitud } from '../../../types';
 
 type Grupo = 'asignadas' | 'disponibles';
 
@@ -28,7 +29,7 @@ export function AnalistaQueueView() {
   const [grupo, setGrupo] = useState<Grupo>('asignadas');
   const [valoresFiltros, setValoresFiltros] = useState<ValoresFiltrosSolicitudes>(FILTROS_VACIOS);
   const [pagina, setPagina] = useState(1);
-  const [solicitudEnCambioDeEstado, setSolicitudEnCambioDeEstado] = useState<number | null>(null);
+  const [solicitudEnCambioDeEstado, setSolicitudEnCambioDeEstado] = useState<Solicitud | null>(null);
   const usuarioActualId = useAuthStore((state) => state.user?.id);
   const cambiarAsignacion = useCambiarAsignacion();
 
@@ -109,7 +110,7 @@ export function AnalistaQueueView() {
                       type="button"
                       variante="secundario"
                       tamano="sm"
-                      onClick={() => setSolicitudEnCambioDeEstado(solicitud.id)}
+                      onClick={() => setSolicitudEnCambioDeEstado(solicitud)}
                     >
                       Cambiar estado
                     </Button>
@@ -134,7 +135,12 @@ export function AnalistaQueueView() {
       )}
 
       {solicitudEnCambioDeEstado !== null && (
-        <CambiarEstadoModal solicitudId={solicitudEnCambioDeEstado} onCerrar={() => setSolicitudEnCambioDeEstado(null)} />
+        <CambiarEstadoModal
+          solicitudId={solicitudEnCambioDeEstado.id}
+          codigoSolicitud={solicitudEnCambioDeEstado.codigo}
+          estadoActual={solicitudEnCambioDeEstado.estado}
+          onCerrar={() => setSolicitudEnCambioDeEstado(null)}
+        />
       )}
     </div>
   );

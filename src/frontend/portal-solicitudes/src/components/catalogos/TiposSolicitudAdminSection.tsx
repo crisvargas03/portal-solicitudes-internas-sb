@@ -7,6 +7,7 @@ import {
   useCrearTipoSolicitud,
   useTiposSolicitudTodos,
 } from '../../hooks/queries/useCatalogosAdmin';
+import { useConfirm } from '../../hooks/useConfirm';
 import { tipoSolicitudSchema } from '../../schemas/tipoSolicitudSchema';
 import type { TipoSolicitudFormValues } from '../../schemas/tipoSolicitudSchema';
 import { ErrorApi } from '../../lib/apiClient';
@@ -22,6 +23,7 @@ export function TiposSolicitudAdminSection() {
   const { data: tipos = [], isLoading } = useTiposSolicitudTodos();
   const crear = useCrearTipoSolicitud();
   const actualizar = useActualizarTipoSolicitud();
+  const confirmar = useConfirm();
   const [editando, setEditando] = useState<TipoSolicitudAdmin | null>(null);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
@@ -57,7 +59,22 @@ export function TiposSolicitudAdminSection() {
   }
 
   async function alternarActivo(tipo: TipoSolicitudAdmin) {
-    await actualizar.mutateAsync({ id: tipo.id, datos: { activo: !tipo.activo } });
+    setErrorGeneral(null);
+    try {
+      if (!tipo.activo) {
+        await actualizar.mutateAsync({ id: tipo.id, datos: { activo: true } });
+        return;
+      }
+      await confirmar({
+        titulo: 'Desactivar tipo de solicitud',
+        mensaje: `¿Desactivar el tipo «${tipo.nombre}»? Dejará de aparecer al crear o editar solicitudes. Las solicitudes existentes no se verán afectadas.`,
+        variante: 'peligro',
+        textoConfirmar: 'Desactivar',
+        accion: () => actualizar.mutateAsync({ id: tipo.id, datos: { activo: false } }),
+      });
+    } catch (error) {
+      setErrorGeneral(error instanceof ErrorApi ? error.message : 'No se pudo actualizar el tipo de solicitud.');
+    }
   }
 
   const columnas: Columna<TipoSolicitudAdmin>[] = [

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pencil, Plus } from 'lucide-react';
 import { useActualizarPrioridad, useCrearPrioridad, usePrioridadesTodas } from '../../hooks/queries/useCatalogosAdmin';
+import { useConfirm } from '../../hooks/useConfirm';
 import { prioridadSchema } from '../../schemas/prioridadSchema';
 import type { PrioridadFormValues } from '../../schemas/prioridadSchema';
 import { ErrorApi } from '../../lib/apiClient';
@@ -18,6 +19,7 @@ export function PrioridadesAdminSection() {
   const { data: prioridades = [], isLoading } = usePrioridadesTodas();
   const crear = useCrearPrioridad();
   const actualizar = useActualizarPrioridad();
+  const confirmar = useConfirm();
   const [editando, setEditando] = useState<PrioridadAdmin | null>(null);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
@@ -52,7 +54,22 @@ export function PrioridadesAdminSection() {
   }
 
   async function alternarActivo(prioridad: PrioridadAdmin) {
-    await actualizar.mutateAsync({ id: prioridad.id, datos: { activo: !prioridad.activo } });
+    setErrorGeneral(null);
+    try {
+      if (!prioridad.activo) {
+        await actualizar.mutateAsync({ id: prioridad.id, datos: { activo: true } });
+        return;
+      }
+      await confirmar({
+        titulo: 'Desactivar prioridad',
+        mensaje: `¿Desactivar la prioridad «${prioridad.nombre}»? Dejará de aparecer al crear o editar solicitudes. Las solicitudes que ya la tienen la conservan.`,
+        variante: 'peligro',
+        textoConfirmar: 'Desactivar',
+        accion: () => actualizar.mutateAsync({ id: prioridad.id, datos: { activo: false } }),
+      });
+    } catch (error) {
+      setErrorGeneral(error instanceof ErrorApi ? error.message : 'No se pudo actualizar la prioridad.');
+    }
   }
 
   const columnas: Columna<PrioridadAdmin>[] = [

@@ -1,5 +1,6 @@
 import { Toaster } from 'sonner';
 import { RouterProvider } from 'react-router';
+import { ConfirmDialogHost } from './components/ui/ConfirmDialogHost';
 import { useRenovacionSesion } from './hooks/useRenovacionSesion';
 import { useRevalidarSesion } from './hooks/useRevalidarSesion';
 import { router } from './router';
@@ -12,6 +13,7 @@ export function App() {
   return (
     <>
       <Toaster richColors position="top-right" />
+      <ConfirmDialogHost />
       <RouterProvider router={router} />
     </>
   );

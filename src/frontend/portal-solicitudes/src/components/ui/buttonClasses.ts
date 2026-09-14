@@ -1,10 +1,11 @@
-type Variante = 'primario' | 'secundario' | 'fantasma';
+type Variante = 'primario' | 'secundario' | 'fantasma' | 'peligro';
 type Tamano = 'sm' | 'md';
 
 const VARIANTE_CLASES: Record<Variante, string> = {
   primario: 'bg-navy text-white hover:bg-accent-orange',
   secundario: 'border border-slate-300 text-navy hover:border-accent-orange hover:text-accent-orange',
   fantasma: 'text-slate-500 hover:text-accent-orange',
+  peligro: 'bg-danger text-white hover:bg-red-800',
 };
 
 const TAMANO_CLASES: Record<Tamano, string> = {
