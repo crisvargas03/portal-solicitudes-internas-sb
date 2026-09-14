@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageReference Include="LiteBus.Commands" Version="5.0.0" />
+    <PackageReference Include="LiteBus.Queries" Version="5.0.0" />
+    <PackageReference Include="LiteBus.Runtime.Extensions.Microsoft.DependencyInjection" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SB.PortalSolicitudes.Domain\SB.PortalSolicitudes.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

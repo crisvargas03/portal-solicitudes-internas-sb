@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+	--font-sans: 'Public Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+	--color-navy: #0d2f48;
+	--color-gray-bg: #edf0f7;
+	--color-accent-orange: #d9480f;
+	--color-danger: #b91c1c;
+	--color-danger-soft: #fee2e2;
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-sans);
+	color: var(--color-navy);
+}

@@ -1,0 +1,56 @@
+# Levanta la base de datos y la API para evaluar la solucion (ver ADR-0008):
+#   docker compose up -d
+# La base arranca vacia: el esquema y los catalogos los aplica el endpoint de preparacion
+# (pendiente de implementar), no el arranque de la API.
+# Swagger: http://localhost:5008/swagger
+#
+# La contrasena de SQL Server es una credencial local de desarrollo. Se puede sobrescribir
+# exportando MSSQL_SA_PASSWORD o con un archivo .env, sin tocar este archivo.
+services:
+    mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        container_name: portal-solicitudes-mssql
+        environment:
+            ACCEPT_EULA: 'Y'
+            MSSQL_PID: Developer
+            MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Portal.Sb.2026}
+        ports:
+            - '1433:1433'
+        volumes:
+            - mssql-datos:/var/opt/mssql
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1"
+                  || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1"
+            interval: 10s
+            timeout: 5s
+            retries: 12
+            start_period: 20s
+
+    api:
+        build:
+            context: ./src/backend/SB.PortalSolicitudes
+            dockerfile: Dockerfile
+        container_name: portal-solicitudes-api
+        environment:
+            ASPNETCORE_ENVIRONMENT: Development
+            ASPNETCORE_URLS: http://+:8080
+            ConnectionStrings__PortalSolicitudes: Server=mssql,1433;Database=PortalSolicitudes;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Portal.Sb.2026};TrustServerCertificate=True;Encrypt=False
+            Jwt__ClaveSecreta: clave-secreta-de-desarrollo-no-usar-en-produccion-2026
+            Jwt__Emisor: SB.PortalSolicitudes
+            Jwt__Audiencia: SB.PortalSolicitudes.Clientes
+            Jwt__MinutosExpiracion: 60
+            Cors__OrigenesPermitidos__0: http://localhost:5173
+            Cors__OrigenesPermitidos__1: http://localhost:3000
+        ports:
+            - '5008:8080'
+        volumes:
+            - api-datos:/app/Data
+        depends_on:
+            mssql:
+                condition: service_healthy
+
+volumes:
+    mssql-datos:
+    api-datos:
